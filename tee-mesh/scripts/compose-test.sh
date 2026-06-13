@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Bring up the containerized 3-node mesh, assert convergence + a cross-node agent call,
-# then tear down. This exercises the exact images/compose Phala will run.
+# Bring up the containerized 3-node mesh, assert convergence + cross-mesh skill routing,
+# then tear down. Exercises the exact images/compose Phala will run.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CF="$ROOT/deploy/docker-compose.local.yaml"
@@ -20,15 +20,13 @@ for i in $(seq 1 60); do
   sleep 2
 done
 
-echo "== /peers as seen by node-a =="
+echo "== /peers as seen by node-a (each node's isolated skills) =="
 curl -fsS "http://localhost:$PORT_A/peers" | python3 -c 'import sys,json; [print("  {} v{} mode={} agents=[{}] stale={}".format(p["app_id"], p["version"], p["mode"], ",".join(a["name"] for a in p["agents"]), p.get("stale"))) for p in json.load(sys.stdin)]'
-
-echo "== cross-node proxy: node-a -> node-c'\''s echo, via host port =="
-URL=$(curl -fsS "http://localhost:$PORT_A/peers" | python3 -c 'import sys,json; ps=json.load(sys.stdin); c=next(p for p in ps if p["app_id"]=="node-c"); print(next(a for a in c["agents"] if a["name"]=="echo")["url"])')
-echo "  card url (in-compose): $URL"
-# node-c maps to the host; call its echo through the published port to prove reachability
-curl -fsS "http://localhost:$PORT_C/agents/echo?q=hello-compose"; echo
 
 echo "== node count =="
 echo "  node-a sees ${N:-?} nodes (expect 3)"
-test "${N:-0}" = "3" && echo "PASS" || { echo "FAIL"; dc logs --tail=30; exit 1; }
+test "${N:-0}" = "3" || { echo "FAIL: mesh did not converge"; dc logs --tail=40; exit 1; }
+
+# Routing fans across the mesh: calc@node-a, weather@node-b, define@node-c — all asked at node-a.
+bash "$ROOT/scripts/e2e-routing.sh" "http://localhost:$PORT_A" || { echo "FAIL: e2e routing"; dc logs --tail=40; exit 1; }
+echo "ALL PASS"

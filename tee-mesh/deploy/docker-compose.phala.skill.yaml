@@ -1,0 +1,25 @@
+# One Phala compose for any skill node — the skill is selected per-CVM via the SKILL env.
+# node + one skill container on an internal network (node is sole egress); dstack socket mounted.
+services:
+  node:
+    image: ghcr.io/amiller/alignos-node:v4
+    ports: ["8080:8080"]
+    environment:
+      ALIGN_SELF_URL: ${ALIGN_SELF_URL}
+      ALIGN_MANIFEST_JSON: ${ALIGN_MANIFEST_JSON}
+      ALIGN_GOSSIP_INTERVAL: ${ALIGN_GOSSIP_INTERVAL:-5}
+      REGISTRY_RPC: ${REGISTRY_RPC}
+      REGISTRY_CONTRACT: ${REGISTRY_CONTRACT}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      DSTACK_SOCKET: /var/run/dstack.sock
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    networks: [default, agents]
+  skill:
+    image: ghcr.io/amiller/alignos-skill:latest
+    environment:
+      SKILL: ${SKILL}
+    networks: [agents]
+networks:
+  agents:
+    internal: true
