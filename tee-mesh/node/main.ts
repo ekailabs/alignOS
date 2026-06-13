@@ -2,7 +2,7 @@
 import { type Address, type Hex } from "viem";
 import { getIdentity } from "./identity.ts";
 import { aggregateAgents, agentsFingerprint, type AgentRef, type NodeCard } from "./cards.ts";
-import { makeRegistry, type RegistryClient } from "./registry.ts";
+import { makeRegistry } from "./registry.ts";
 import { Directory, runGossip } from "./gossip.ts";
 import { makeHandler } from "./ingress.ts";
 import { appendEvent } from "./eventlog.ts";
@@ -20,18 +20,8 @@ const refs: AgentRef[] = manifestJson ? JSON.parse(manifestJson) : JSON.parse(aw
 const agents = new Map(refs.map((r) => [r.name, r.url]));
 
 const identity = await getIdentity();
+console.log(`[alignos] identity node_id=${identity.node_id} mode=${identity.mode} app_id=${identity.app_id}`);
 await appendEvent("boot", { node_id: identity.node_id, mode: identity.mode, gateway: gatewayUrl });
-
-// On-chain membership (the seed list). Standalone if unconfigured — logged, not masked.
-let registry: RegistryClient | null = null;
-const rpc = env("REGISTRY_RPC"), contract = env("REGISTRY_CONTRACT"), pk = env("PRIVATE_KEY");
-if (rpc && contract && pk) {
-  registry = makeRegistry(rpc, contract as Address, pk as Hex);
-  const tx = await registry.register(identity.node_id, identity.pubkey, identity.code_id, gatewayUrl);
-  await appendEvent("registered", { tx, node_id: identity.node_id, gateway: gatewayUrl });
-} else {
-  await appendEvent("standalone", { reason: "REGISTRY_RPC/REGISTRY_CONTRACT/PRIVATE_KEY not all set" });
-}
 
 const dir = new Directory();
 let selfCard: NodeCard;
@@ -55,9 +45,28 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   Deno.addSignalListener(sig, () => { stop.abort(); Deno.exit(0); });
 }
 
-if (registry) {
-  runGossip(dir, identity.node_id, gatewayUrl, registry, refreshSelf, interval, stop.signal);
-}
-
+// Serve immediately — the gateway must always find a healthy backend. Registration and
+// gossip run in the background so a slow/unreachable chain never blocks serving.
 const handler = makeHandler({ selfId: identity.node_id, getSelfCard: () => selfCard, dir, agents, identity });
 Deno.serve({ port, hostname: "0.0.0.0" }, handler);
+console.log(`[alignos] serving on :${port} gateway=${gatewayUrl}`);
+
+(async () => {
+  const rpc = env("REGISTRY_RPC"), contract = env("REGISTRY_CONTRACT"), pk = env("PRIVATE_KEY");
+  if (!(rpc && contract && pk)) {
+    console.log("[alignos] standalone: REGISTRY_RPC/REGISTRY_CONTRACT/PRIVATE_KEY not all set");
+    await appendEvent("standalone", {});
+    return;
+  }
+  const registry = makeRegistry(rpc, contract as Address, pk as Hex);
+  try {
+    const tx = await registry.register(identity.node_id, identity.pubkey, identity.code_id, gatewayUrl);
+    console.log(`[alignos] registered on-chain tx=${tx}`);
+    await appendEvent("registered", { tx, node_id: identity.node_id, gateway: gatewayUrl });
+  } catch (e) {
+    console.error(`[alignos] register failed (serving continues, gossip disabled): ${e}`);
+    await appendEvent("register_failed", { error: String(e) });
+    return;
+  }
+  runGossip(dir, identity.node_id, gatewayUrl, registry, refreshSelf, interval, stop.signal);
+})();

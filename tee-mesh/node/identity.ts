@@ -17,27 +17,56 @@ export interface Identity {
 }
 
 // HTTP/1.1 over a unix socket — the dstack guest agent speaks JSON-RPC as POST /<Method>.
+// Reads are Content-Length/chunked aware and time-bounded: we never block waiting for an
+// EOF that a keep-alive server won't send (which would otherwise hang boot forever).
 async function dstackRpc(socket: string, method: string, body: unknown): Promise<any> {
   const conn = await Deno.connect({ transport: "unix", path: socket });
-  const payload = JSON.stringify(body ?? {});
-  const head =
-    `POST /${method} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\n` +
-    `Content-Length: ${new TextEncoder().encode(payload).length}\r\nConnection: close\r\n\r\n`;
-  await conn.write(new TextEncoder().encode(head + payload));
+  try {
+    const payload = JSON.stringify(body ?? {});
+    const head =
+      `POST /${method} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\n` +
+      `Content-Length: ${new TextEncoder().encode(payload).length}\r\nConnection: close\r\n\r\n`;
+    await conn.write(new TextEncoder().encode(head + payload));
+    const raw = await readHttp(conn, 8000);
+    const sep = raw.indexOf("\r\n\r\n");
+    if (sep < 0) throw new Error(`dstack ${method}: no HTTP headers in response`);
+    const header = raw.slice(0, sep);
+    let bodyText = raw.slice(sep + 4);
+    if (/transfer-encoding:\s*chunked/i.test(header)) bodyText = dechunk(bodyText);
+    else {
+      const m = header.match(/content-length:\s*(\d+)/i);
+      if (m) bodyText = bodyText.slice(0, Number(m[1]));
+    }
+    return JSON.parse(bodyText);
+  } finally {
+    try { conn.close(); } catch { /* already closed */ }
+  }
+}
+
+// Read an HTTP response, stopping as soon as it's complete (Content-Length satisfied or
+// chunked terminator seen); a per-read timeout is the backstop against a stalled socket.
+async function readHttp(conn: Deno.Conn, timeoutMs: number): Promise<string> {
   const chunks: Uint8Array[] = [];
   const buf = new Uint8Array(65536);
   while (true) {
-    const n = await conn.read(buf);
-    if (n === null) break;
+    const n = await Promise.race([
+      conn.read(buf),
+      new Promise<"t">((res) => setTimeout(() => res("t"), timeoutMs)),
+    ]);
+    if (n === "t" || n === null) break;
     chunks.push(buf.slice(0, n));
+    const raw = new TextDecoder().decode(concat(chunks));
+    const sep = raw.indexOf("\r\n\r\n");
+    if (sep < 0) continue;
+    const header = raw.slice(0, sep);
+    if (/transfer-encoding:\s*chunked/i.test(header)) {
+      if (/\r\n0\r\n\r\n$/.test(raw)) break;
+    } else {
+      const m = header.match(/content-length:\s*(\d+)/i);
+      if (!m || raw.length - (sep + 4) >= Number(m[1])) break;
+    }
   }
-  conn.close();
-  const raw = new TextDecoder().decode(concat(chunks));
-  const sep = raw.indexOf("\r\n\r\n");
-  const header = raw.slice(0, sep);
-  let bodyText = raw.slice(sep + 4);
-  if (/transfer-encoding:\s*chunked/i.test(header)) bodyText = dechunk(bodyText);
-  return JSON.parse(bodyText);
+  return new TextDecoder().decode(concat(chunks));
 }
 
 function concat(arrs: Uint8Array[]): Uint8Array {

@@ -3,7 +3,7 @@
 # TEE identity. Agents on an internal network; the node is their sole egress.
 services:
   node:
-    image: ghcr.io/amiller/alignos-node:latest
+    image: ghcr.io/amiller/alignos-node:v2
     ports: ["8080:8080"]
     environment:
       ALIGN_SELF_URL: ${ALIGN_SELF_URL}
