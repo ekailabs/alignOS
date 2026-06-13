@@ -7,6 +7,8 @@ import type { Identity } from "./identity.ts";
 import { appendEvent } from "./eventlog.ts";
 import { handleA2A } from "./a2a.ts";
 import type { TaskStore, Policy } from "./inbox.ts";
+import { route } from "./router.ts";
+import { DASHBOARD_HTML } from "./dashboard.ts";
 
 const STALE_MS = 90_000;
 
@@ -45,9 +47,18 @@ export function makeHandler(ctx: IngressCtx) {
       return Response.json(await ctx.identity.getQuote(rd));
     }
 
+    if (p === "/route" && req.method === "POST") {
+      const body = await req.json().catch(() => ({})) as { question?: string };
+      return Response.json(await route(body.question ?? "", ctx.dir.all()));
+    }
+
+    if (p === "/dashboard") {
+      return new Response(DASHBOARD_HTML, { headers: { "content-type": "text/html; charset=utf-8" } });
+    }
+
     if (p === "/") {
       return Response.json({
-        alignOS: true, node_id: ctx.selfId, mode: ctx.identity.mode,
+        alignOS: true, node_id: ctx.selfId, app_id: ctx.identity.app_id, mode: ctx.identity.mode,
         agents: [...ctx.agents.keys()], peers: ctx.dir.all().length,
       });
     }

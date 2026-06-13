@@ -1,6 +1,3 @@
-# Phala/dstack deploy: pre-built images pulled from ghcr (no build context on the CVM),
-# manifest passed inline via env (no host files to bind-mount), dstack socket mounted for
-# TEE identity. Agents on an internal network; the node is their sole egress.
 services:
   node:
     image: ghcr.io/amiller/alignos-node:v3
@@ -16,9 +13,6 @@ services:
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
     networks: [default, agents]
-  echo:
-    image: ghcr.io/amiller/alignos-echo:latest
-    networks: [agents]
   ping:
     image: ghcr.io/amiller/alignos-ping:latest
     networks: [agents]
