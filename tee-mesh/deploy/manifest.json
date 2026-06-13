@@ -1,0 +1,4 @@
+[
+  { "name": "echo", "url": "http://echo:8080" },
+  { "name": "ping", "url": "http://ping:8080" }
+]

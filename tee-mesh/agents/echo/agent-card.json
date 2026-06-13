@@ -1,0 +1,11 @@
+{
+  "name": "echo",
+  "description": "Echoes back whatever you send it.",
+  "version": "1.0.0",
+  "protocolVersion": "0.2.0",
+  "capabilities": { "streaming": false },
+  "skills": [
+    { "id": "echo", "name": "Echo", "description": "Return the input verbatim", "tags": ["demo"] }
+  ],
+  "url": "/agents/echo"
+}

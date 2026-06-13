@@ -1,0 +1,5 @@
+events.jsonl
+contracts/out/
+contracts/cache/
+node_modules/
+.env

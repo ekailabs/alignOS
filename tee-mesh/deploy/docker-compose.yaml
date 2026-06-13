@@ -1,0 +1,30 @@
+# One alignOS node + its agents per CVM. Agents live on an `internal` network so the
+# node is their only egress (and the only way peers reach them); the node also sits on the
+# default network for chain RPC + peer-gateway access. The node does NOT mount the docker
+# socket — agents are declared here, not host-launched (hivemind-core audit lesson).
+services:
+  node:
+    build: ../node
+    image: alignos-node
+    ports: ["8080:8080"]
+    environment:
+      ALIGN_SELF_URL: ${ALIGN_SELF_URL}
+      ALIGN_GOSSIP_INTERVAL: ${ALIGN_GOSSIP_INTERVAL:-5}
+      ALIGN_MANIFEST: /app/manifest.json
+      REGISTRY_RPC: ${REGISTRY_RPC}
+      REGISTRY_CONTRACT: ${REGISTRY_CONTRACT}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      DSTACK_SOCKET: /var/run/dstack.sock
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - ./manifest.json:/app/manifest.json:ro
+    networks: [default, agents]
+  echo:
+    build: ../agents/echo
+    networks: [agents]
+  ping:
+    build: ../agents/ping
+    networks: [agents]
+networks:
+  agents:
+    internal: true

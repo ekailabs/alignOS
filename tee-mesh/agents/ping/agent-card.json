@@ -1,0 +1,11 @@
+{
+  "name": "ping",
+  "description": "Replies pong with a timestamp; a liveness beacon.",
+  "version": "1.0.0",
+  "protocolVersion": "0.2.0",
+  "capabilities": { "streaming": false },
+  "skills": [
+    { "id": "ping", "name": "Ping", "description": "Return pong and the current time", "tags": ["demo", "health"] }
+  ],
+  "url": "/agents/ping"
+}
