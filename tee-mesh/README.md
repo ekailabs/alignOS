@@ -27,6 +27,15 @@ exchanging A2A-style **agent cards** plus how to connect to them. Trusted-setup 
 - `GET /quote?report_data=…` — dstack quote (public verifier surface)
 - `ALL /agents/<name>/*` — reverse-proxy to a local agent
 
+## Live deployment (prod7, Phala KMS)
+A 3-node mesh is running on `dstack-pha-prod7`, registry on Ethereum Sepolia
+`0xf31768d4E42d5e80aE95415309D7908ae730Fb41`:
+- node-a (echo): `https://85b887ee69cfcd49061d5bbdc5ffa94da11f2939-8080.dstack-pha-prod7.phala.network`
+- node-b (ping): `https://29736dcf7742550956c28a1174c1e0724b6d769c-8080.dstack-pha-prod7.phala.network`
+- node-c (echo+ping): `https://29b4c80372a66a7086d9c953b4c9902c7071b701-8080.dstack-pha-prod7.phala.network`
+
+`curl <any>/peers` shows all three; each `mode=tee`, agents reachable at `<node>/agents/<name>`.
+
 ## Run the local 3-node mesh (anvil, no docker/TEE)
 ```bash
 bash scripts/local-test.sh
