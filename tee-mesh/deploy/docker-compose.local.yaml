@@ -31,7 +31,7 @@ services:
   node-a:
     build: ../node
     depends_on: { deployer: { condition: service_completed_successfully } }
-    ports: ["8081:8080"]
+    ports: ["${ALIGN_HOST_PORT_A:-8081}:8080"]
     volumes: ["./manifest.a.json:/app/manifest.json:ro"]
     environment:
       ALIGN_NODE_ID: node-a
@@ -46,7 +46,7 @@ services:
   node-b:
     build: ../node
     depends_on: { deployer: { condition: service_completed_successfully } }
-    ports: ["8082:8080"]
+    ports: ["${ALIGN_HOST_PORT_B:-8082}:8080"]
     volumes: ["./manifest.b.json:/app/manifest.json:ro"]
     environment:
       ALIGN_NODE_ID: node-b
@@ -61,7 +61,7 @@ services:
   node-c:
     build: ../node
     depends_on: { deployer: { condition: service_completed_successfully } }
-    ports: ["8083:8080"]
+    ports: ["${ALIGN_HOST_PORT_C:-8083}:8080"]
     volumes: ["./manifest.c.json:/app/manifest.json:ro"]
     environment:
       ALIGN_NODE_ID: node-c

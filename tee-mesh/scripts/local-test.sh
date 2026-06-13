@@ -4,8 +4,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DENO="$HOME/.deno/bin/deno"
-FB="$HOME/.foundry/bin"
+DENO="${DENO:-$(command -v deno || true)}"
+ANVIL="${ANVIL:-$(command -v anvil || true)}"; ANVIL="${ANVIL:-$HOME/.foundry/bin/anvil}"
+FORGE="${FORGE:-$(command -v forge || true)}"; FORGE="${FORGE:-$HOME/.foundry/bin/forge}"
+CAST="${CAST:-$(command -v cast || true)}"; CAST="${CAST:-$HOME/.foundry/bin/cast}"
+[ -x "$DENO" ] || { echo "deno not found; install Deno or set DENO=/path/to/deno" >&2; exit 127; }
+[ -x "$ANVIL" ] || { echo "anvil not found; install Foundry or set ANVIL=/path/to/anvil" >&2; exit 127; }
+[ -x "$FORGE" ] || { echo "forge not found; install Foundry or set FORGE=/path/to/forge" >&2; exit 127; }
+[ -x "$CAST" ] || { echo "cast not found; install Foundry or set CAST=/path/to/cast" >&2; exit 127; }
 RPC="http://localhost:8545"
 # anvil account[0]
 KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -15,12 +21,12 @@ cleanup() { for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; rm 
 trap cleanup EXIT
 
 echo "== anvil =="
-"$FB/anvil" --silent --port 8545 >/dev/null & PIDS+=($!)
+"$ANVIL" --silent --port 8545 >/dev/null & PIDS+=($!)
 sleep 1.5
 
 echo "== deploy AlignRegistry =="
 cd "$ROOT/contracts"
-ADDR=$("$FB/forge" create src/AlignRegistry.sol:AlignRegistry --rpc-url "$RPC" --private-key "$KEY" --broadcast --json | "$DENO" eval 'const d=JSON.parse(await new Response(Deno.stdin.readable).text());console.log(d.deployedTo)')
+ADDR=$("$FORGE" create src/AlignRegistry.sol:AlignRegistry --rpc-url "$RPC" --private-key "$KEY" --broadcast --json | "$DENO" eval 'const d=JSON.parse(await new Response(Deno.stdin.readable).text());console.log(d.deployedTo)')
 echo "registry: $ADDR"
 
 start_agent() { # name port
@@ -58,7 +64,7 @@ echo "  resolved: $URL"
 curl -s "$URL?q=hello-from-test" ; echo
 
 echo "== on-chain getMembers() =="
-"$FB/cast" call "$ADDR" "getMembers()(bytes32[])" --rpc-url "$RPC"
+"$CAST" call "$ADDR" "getMembers()(bytes32[])" --rpc-url "$RPC"
 
 echo "== node count check =="
 N=$(curl -s http://localhost:8081/peers | "$DENO" eval 'console.log(JSON.parse(await new Response(Deno.stdin.readable).text()).length)')
