@@ -14,7 +14,9 @@ const gatewayUrl = env("ALIGN_SELF_URL", `http://localhost:${port}`)!.replace(/\
 const interval = Number(env("ALIGN_GOSSIP_INTERVAL", "5")) * 1000;
 const manifestPath = env("ALIGN_MANIFEST", "./manifest.json")!;
 
-const refs: AgentRef[] = JSON.parse(await Deno.readTextFile(manifestPath));
+// Manifest from an inline env var (preferred on dstack — no host files to bind-mount) or a file.
+const manifestJson = env("ALIGN_MANIFEST_JSON");
+const refs: AgentRef[] = manifestJson ? JSON.parse(manifestJson) : JSON.parse(await Deno.readTextFile(manifestPath));
 const agents = new Map(refs.map((r) => [r.name, r.url]));
 
 const identity = await getIdentity();

@@ -37,12 +37,14 @@ all three converge and a cross-node agent call resolves.
 ## Chains
 - **AlignRegistry** → Ethereum Sepolia (L1, chainId 11155111). The node is chain-agnostic;
   point `REGISTRY_RPC` anywhere. Deploy with `PRIVATE_KEY=0x… bash scripts/deploy-registry.sh`.
-- **CVM KMS** → Phala's managed Base KMS on prod7 (the `dstack-base-prod7` domain). This is a
-  *separate* chain from the registry and does not need to match it.
+- **CVM KMS** → Phala's managed KMS (default `--kms phala`) on prod7 (the `dstack-pha-prod7`
+  domain). This is a *separate* chain from the registry and does not need to match it.
 
 ## Deploy to 3 Phala CVMs (prod7)
+Images are pulled from ghcr (`ghcr.io/amiller/alignos-{node,echo,ping}`); the manifest is
+passed inline via `ALIGN_MANIFEST_JSON` (no host bind-mounts on the CVM).
 1. `PRIVATE_KEY=0x… bash scripts/deploy-registry.sh` → record `REGISTRY_CONTRACT`.
-2. Per CVM: copy `deploy/.env.example` → `.env`, fill `REGISTRY_*`/`PRIVATE_KEY`, give each a
-   distinct `manifest.json`. `phala deploy` from `deploy/`, then set `ALIGN_SELF_URL` to the
-   issued gateway URL and upgrade in place (`phala deploy --cvm-id`; `phala cvms restart`).
-3. `curl https://<app_id>-8080.dstack-base-prod7.phala.network/peers` on each → full mesh.
+2. Per CVM: an env file with `REGISTRY_*`/`PRIVATE_KEY` + a distinct `ALIGN_MANIFEST_JSON`.
+   `npx phala deploy -c deploy/docker-compose.phala.yaml -e <env>`, then set `ALIGN_SELF_URL`
+   to the issued gateway URL and upgrade in place (`phala deploy --cvm-id`; restart).
+3. `curl https://<app_id>-8080.dstack-pha-prod7.phala.network/peers` on each → full mesh.
