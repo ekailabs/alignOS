@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+  <title>Assist</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="drag-strip"></div>
+  <main class="shell">
+    <header class="head" id="head" hidden>
+      <span class="wm">Assist</span>
+      <span class="head-right">
+        <span class="pill" id="priv">Private</span>
+        <button class="link" id="open-inbox">Inbox</button>
+        <button class="link" id="open-prefs">Preferences</button>
+      </span>
+    </header>
+
+    <!-- LOADING -->
+    <section class="card state" id="loading">
+      <div class="spinner"></div>
+      <p class="status" id="loading-text">Connecting to your assistant…</p>
+    </section>
+
+    <!-- CONNECT / SET UP -->
+    <section class="card setup" id="connect" hidden>
+      <div class="mark">a</div>
+      <h1>Set up your assistant</h1>
+      <p class="lead">Your assistant works for you in a private space only you control.
+        Connect to it to begin.</p>
+      <label class="field"><span>Space address</span>
+        <input id="connect-url" value="http://localhost:8080" autocomplete="off" spellcheck="false" /></label>
+      <button class="btn primary" id="connect-go">Connect →</button>
+      <div class="err" id="connect-err" hidden></div>
+      <p class="foot">Nothing is shared without your okay. Replies are written by your assistant
+        and only sent when you approve.</p>
+    </section>
+
+    <!-- INBOX -->
+    <section class="card inbox" id="inbox" hidden>
+      <h1 class="ihead">Inbox</h1>
+      <p class="isub" id="inbox-sub">—</p>
+      <ul class="list" id="inbox-list"></ul>
+    </section>
+
+    <!-- ALL CLEAR -->
+    <section class="card state" id="allclear" hidden>
+      <div class="moon">☾</div>
+      <h2>You're all caught up</h2>
+      <p class="sub">Nothing needs your call right now. Your assistant will let you know.</p>
+    </section>
+
+    <!-- REVIEW -->
+    <section class="card review" id="review" hidden>
+      <button class="link back" id="rv-back">← Inbox</button>
+      <div class="rv-from"><b id="rv-who">—</b> <span class="chip" id="rv-chip" hidden>Connected</span>
+        <span class="rv-age" id="rv-age"></span></div>
+      <div class="quote" id="rv-ask">—</div>
+      <div class="lbl">Your assistant drafted a reply</div>
+      <div class="draft" id="rv-draft">—</div>
+      <div class="prov" id="rv-prov"></div>
+
+      <div class="compose" id="rv-compose" hidden>
+        <div class="ch">Follow up — ask your assistant to adjust</div>
+        <textarea id="rv-compose-text" rows="2" placeholder="e.g. keep it to two sentences…"></textarea>
+        <div class="crow"><button class="btn small primary" id="rv-compose-send">Send to assistant →</button></div>
+      </div>
+
+      <div class="consequence" id="rv-consequence"></div>
+      <div class="actions">
+        <button class="btn ghost" id="rv-decline">Decline</button>
+        <button class="btn outline" id="rv-followup">Follow up</button>
+        <button class="btn primary" id="rv-approve">Approve &amp; send</button>
+      </div>
+    </section>
+
+    <!-- PREFERENCES (Connections + Auto-handle wired in a later slice) -->
+    <section class="card prefs" id="prefs" hidden>
+      <button class="link back" id="prefs-back">← Inbox</button>
+      <h1 class="ihead">Preferences</h1>
+      <div class="sec">Connections — who can reach your assistant</div>
+      <div class="prefs-note">Anyone new defaults to <b>always ask me</b>. Per-connection rules
+        and the auto-handle allow-list are wired in the next slice.</div>
+      <div class="sec">What your assistant knows</div>
+      <div class="prefs-note">Notes you add live in your private space and never leave it.</div>
+    </section>
+
+    <!-- ERROR -->
+    <section class="card state" id="error" hidden>
+      <div class="glyph">⚠</div>
+      <p class="status">Something went sideways.</p>
+      <p class="sub" id="error-text"></p>
+      <button class="btn ghost" id="retry">Try again</button>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

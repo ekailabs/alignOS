@@ -1,0 +1,34 @@
+'use strict';
+// Electron main — thin: every handler just calls the shared src/ modules (same code the
+// CLI uses). No logic lives here.
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+const mc = require('./mesh-client');
+const cfg = require('./config');
+const store = require('./inbox-store');
+
+let win;
+function createWindow() {
+  win = new BrowserWindow({
+    width: 720, height: 880, minWidth: 560, minHeight: 600,
+    title: 'Assist', backgroundColor: '#EFEDE6', titleBarStyle: 'hiddenInset',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+}
+
+app.whenReady().then(createWindow);
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
+ipcMain.handle('bootstrap', async () => { const c = cfg.load(); return { connected: !!c.url, url: c.url || '' }; });
+ipcMain.handle('setup', async (_e, { url }) => { cfg.save({ url: String(url).replace(/\/$/, '') }); return { ok: true }; });
+ipcMain.handle('inbox', async () => mc.inbox());
+ipcMain.handle('show', async (_e, { id }) => mc.getTask(id));
+ipcMain.handle('approve', async (_e, { id }) => { const t = await mc.approve(id); store.record({ taskId: id, verdict: 'approve' }); return t; });
+ipcMain.handle('followup', async (_e, { id, msg }) => { const t = await mc.followup(id, msg); store.record({ taskId: id, verdict: 'followup', instruction: msg }); return t; });
+ipcMain.handle('decline', async (_e, { id, note }) => { const t = await mc.decline(id, note); store.record({ taskId: id, verdict: 'decline', note }); return t; });
