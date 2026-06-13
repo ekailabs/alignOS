@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.*
 # editor autosave/lock/backup (Emacs '#.env#', '.#.env', etc.) — could mirror secret files
-#*#
-.#*
+# (leading '#' must be escaped, else gitignore treats the line as a comment)
+\#*\#
+.\#*
 *~
