@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Assist — Quiet</title>
+<style>
+  :root{
+    --paper:#FBFAF7; --ink:#1B1A17; --muted:#7C766B; --faint:#A8A296;
+    --line:#E8E3D8; --accent:#34357A; --accent-soft:#EDEDF6; --ok:#1B1A17;
+    --serif:ui-serif,"New York",Georgia,serif;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#EFEDE6;font-family:var(--sans);color:var(--ink);
+    -webkit-font-smoothing:antialiased;padding:34px 28px;min-height:100vh}
+  .caption{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--muted);
+    text-transform:uppercase;margin:0 auto 18px;max-width:1020px}
+  .caption b{color:var(--ink);font-weight:600}
+  .frames{display:flex;gap:24px;max-width:1020px;margin:0 auto;align-items:flex-start}
+  .win{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;box-shadow:0 1px 0 rgba(0,0,0,.02),0 18px 40px -28px rgba(40,38,30,.45)}
+  .bar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .dots{display:flex;gap:6px}.dots i{width:10px;height:10px;border-radius:50%;background:#DcD7CB;display:block}
+  .wm{font-family:var(--serif);font-size:16px;font-weight:600;letter-spacing:-.01em}
+  .bar-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .pill{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--accent);background:var(--accent-soft);padding:4px 9px;border-radius:999px;display:flex;gap:5px;align-items:center}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .link{font-size:13px;color:var(--muted);text-decoration:none}
+  .body{padding:22px 20px 24px}
+  .ihead{font-family:var(--serif);font-size:21px;letter-spacing:-.01em;margin-bottom:2px}
+  .isub{font-size:12.5px;color:var(--faint);margin-bottom:18px}
+  ul{list-style:none}
+  .row{padding:15px 12px;border-radius:9px;cursor:pointer;border:1px solid transparent}
+  .row+.row{margin-top:2px}
+  .row:hover{background:#F4F2EB}
+  .row.sel{background:#fff;border-color:var(--line);box-shadow:0 8px 20px -16px rgba(40,38,30,.5)}
+  .rtop{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+  .who{font-size:13.5px;font-weight:600}
+  .ago{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .ask{font-size:14px;color:#403B33;line-height:1.45}
+  .kind{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+  .handled{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--faint);display:flex;align-items:center;gap:7px}
+  .handled b{color:var(--muted);font-weight:600}
+  /* review */
+  .back{font-size:13px;color:var(--muted);text-decoration:none}
+  .rv-from{font-size:12.5px;color:var(--faint);margin-bottom:16px}
+  .rv-from b{color:var(--ink);font-weight:600}
+  .quote{font-family:var(--serif);font-size:19px;line-height:1.4;letter-spacing:-.01em;
+    color:var(--ink);padding-left:16px;border-left:2px solid var(--accent);margin-bottom:24px}
+  .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:9px}
+  .draft{background:#F6F4ED;border:1px solid var(--line);border-radius:10px;padding:16px 17px;
+    font-size:14.5px;line-height:1.6;color:#2C281F}
+  .draft p+p{margin-top:10px}
+  .note{margin-top:14px;font-size:12px;color:var(--faint);line-height:1.5}
+  .actions{display:flex;gap:10px;margin-top:22px;align-items:center}
+  .btn{font-family:var(--sans);font-size:13.5px;padding:10px 16px;border-radius:9px;border:1px solid var(--line);
+    background:#fff;color:var(--ink);cursor:pointer;font-weight:500}
+  .btn.ghost{border:none;background:none;color:var(--muted);padding-left:4px}
+  .btn.primary{margin-left:auto;background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
+  .btn.outline{border-color:#D7D1C4}
+</style></head>
+<body>
+  <div class="caption">Direction 1 — <b>Quiet</b> · editorial calm, light, restraint</div>
+  <div class="frames">
+    <!-- INBOX -->
+    <section class="win">
+      <div class="bar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="wm">Assist</span>
+        <span class="bar-right"><span class="pill">Private</span><a class="link">Connections</a></span>
+      </div>
+      <div class="body">
+        <div class="ihead">Inbox</div>
+        <div class="isub">3 requests need you</div>
+        <ul>
+          <li class="row sel">
+            <div class="rtop"><span class="who">Mara's assistant</span><span class="ago">2m</span></div>
+            <div class="ask">Can you share a summary of the Q2 launch retro?</div>
+          </li>
+          <li class="row">
+            <div class="rtop"><span class="who">Devon's assistant</span><span class="ago">14m</span></div>
+            <div class="ask">What's your availability for a 30-min sync Thursday?</div>
+          </li>
+          <li class="row">
+            <div class="rtop"><span class="who">Priya's assistant</span><span class="ago">1h</span></div>
+            <div class="ask">Do you approve reusing your onboarding checklist?</div>
+          </li>
+        </ul>
+        <div class="handled"><b>Handled privately</b> · 12 today, none needed you</div>
+      </div>
+    </section>
+    <!-- REVIEW -->
+    <section class="win">
+      <div class="bar">
+        <a class="back">← Inbox</a>
+        <span class="bar-right"><span class="kind">needs you</span></span>
+      </div>
+      <div class="body">
+        <div class="rv-from"><b>Mara's assistant</b> is asking — 2 minutes ago</div>
+        <div class="quote">Can you share a summary of the Q2 launch retro?</div>
+        <div class="lbl">Your assistant drafted a reply</div>
+        <div class="draft">
+          <p>Here's the short version of the Q2 launch retro: the rollout hit its date, activation came in 12% over target, and the main friction was onboarding email deliverability.</p>
+          <p>The team's top fix for next quarter is a warm-up sequence for new sending domains. Happy to share the full doc if useful.</p>
+        </div>
+        <div class="note">This reply was written by your assistant in your private space. Nothing is sent until you approve.</div>
+        <div class="actions">
+          <button class="btn ghost">Decline</button>
+          <button class="btn outline">Follow up</button>
+          <button class="btn primary">Approve &amp; send</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</body></html>

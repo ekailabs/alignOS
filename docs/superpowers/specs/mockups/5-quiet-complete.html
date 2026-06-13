@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Assist — Quiet (complete)</title>
+<style>
+  :root{
+    --paper:#FBFAF7; --ink:#1B1A17; --muted:#7C766B; --faint:#A8A296;
+    --line:#E8E3D8; --accent:#34357A; --accent-soft:#EDEDF6; --green:#3C6E4F; --green-soft:#E9F0EA;
+    --serif:ui-serif,"New York",Georgia,serif;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#EFEDE6;font-family:var(--sans);color:var(--ink);
+    -webkit-font-smoothing:antialiased;padding:32px 26px}
+  .caption{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--muted);
+    text-transform:uppercase;margin:0 auto 18px;max-width:1460px}
+  .caption b{color:var(--ink);font-weight:600}
+  .frames{display:flex;gap:22px;max-width:1460px;margin:0 auto;align-items:stretch}
+  .win{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;box-shadow:0 18px 40px -28px rgba(40,38,30,.45);display:flex;flex-direction:column}
+  .bar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .wm{font-family:var(--serif);font-size:16px;font-weight:600;letter-spacing:-.01em}
+  .bar-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .pill{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--accent);background:var(--accent-soft);padding:4px 9px;border-radius:999px;display:flex;gap:5px;align-items:center}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .back{font-size:13px;color:var(--muted);text-decoration:none}
+  .kind{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+  .body{padding:22px 20px 22px;flex:1}
+  .ftitle{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--faint);text-align:center;padding:10px;border-bottom:1px solid var(--line);background:#F4F2EB}
+  /* ---- REVIEW (complete) ---- */
+  .rv-from{font-size:12.5px;color:var(--faint);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .rv-from b{color:var(--ink);font-weight:600}
+  .chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--green);background:var(--green-soft);padding:2px 7px;border-radius:999px;display:inline-flex;gap:4px;align-items:center}
+  .chip::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--green)}
+  .quote{font-family:var(--serif);font-size:18px;line-height:1.4;letter-spacing:-.01em;
+    color:var(--ink);padding-left:15px;border-left:2px solid var(--accent);margin-bottom:20px}
+  .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .draft{background:#F6F4ED;border:1px solid var(--line);border-radius:10px;padding:15px 16px;
+    font-size:14px;line-height:1.58;color:#2C281F}
+  .draft p+p{margin-top:9px}
+  .prov{display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-size:12px;color:var(--muted);line-height:1.45}
+  .prov .ic{color:var(--green);font-size:12px;margin-top:1px}
+  .prov b{color:#4A463C;font-weight:600}
+  .consequence{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--muted)}
+  .consequence b{color:var(--ink);font-weight:600}
+  .actions{display:flex;gap:10px;margin-top:12px;align-items:center}
+  .btn{font-family:var(--sans);font-size:13.5px;padding:10px 16px;border-radius:9px;border:1px solid var(--line);
+    background:#fff;color:var(--ink);cursor:pointer;font-weight:500}
+  .btn.ghost{border:none;background:none;color:var(--muted);padding-left:4px}
+  .btn.primary{margin-left:auto;background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
+  /* ---- ALL CLEAR ---- */
+  .clear{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 26px}
+  .moon{width:46px;height:46px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;
+    color:var(--faint);font-size:20px;margin-bottom:18px}
+  .clear h2{font-family:var(--serif);font-size:22px;letter-spacing:-.01em;margin-bottom:8px}
+  .clear p{font-size:13px;color:var(--muted);max-width:240px;line-height:1.5;margin-bottom:18px}
+  .clear .open{font-size:13px;color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent-soft);padding-bottom:1px}
+  /* ---- HANDLED AUDIT ---- */
+  .intro{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px}
+  .hitem{display:flex;gap:11px;padding:12px 4px;border-bottom:1px solid var(--line)}
+  .tick{color:var(--green);font-size:13px;margin-top:2px}
+  .hmain{flex:1}
+  .hwho{font-size:13px;font-weight:600}
+  .hwhat{font-size:12.5px;color:#544F45;margin-top:2px;line-height:1.4}
+  .hdid{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:4px}
+  .htime{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-left:auto}
+  .hview{font-size:11.5px;color:var(--accent);text-decoration:none;margin-top:4px;display:inline-block}
+</style></head>
+<body>
+  <div class="caption">Direction 1 — <b>Quiet (complete)</b> · the trust layer · Review w/ provenance + consequence · All-clear state · Handled-privately audit</div>
+  <div class="frames">
+    <!-- REVIEW COMPLETE -->
+    <section class="win">
+      <div class="ftitle">Review — with the trust layer</div>
+      <div class="bar"><a class="back">← Inbox</a><span class="bar-right"><span class="kind">needs you</span></span></div>
+      <div class="body">
+        <div class="rv-from"><b>Mara's assistant</b> <span class="chip">Connected</span> · 2 min ago</div>
+        <div class="quote">Can you share a summary of the Q2 launch retro?</div>
+        <div class="lbl">Your assistant drafted a reply</div>
+        <div class="draft">
+          <p>Here's the short version of the Q2 launch retro: the rollout hit its date, activation came in 12% over target, and the main friction was onboarding email deliverability.</p>
+          <p>Top fix next quarter is a warm-up sequence for new sending domains.</p>
+        </div>
+        <div class="prov"><span class="ic">◇</span><span>Drawn from <b>your notes on the Q2 launch</b>. Nothing private left your space.</span></div>
+        <div class="consequence">Approving <b>sends this reply to Mara's assistant</b>. You'll have a moment to undo.</div>
+        <div class="actions">
+          <button class="btn ghost">Decline</button>
+          <button class="btn">Follow up</button>
+          <button class="btn primary">Approve &amp; send</button>
+        </div>
+      </div>
+    </section>
+    <!-- ALL CLEAR -->
+    <section class="win">
+      <div class="ftitle">Inbox — all clear</div>
+      <div class="bar"><span class="wm">Assist</span><span class="bar-right"><span class="pill">Private</span></span></div>
+      <div class="clear">
+        <div class="moon">☾</div>
+        <h2>You're all caught up</h2>
+        <p>Nothing needs your call right now. Your assistant will let you know.</p>
+        <a class="open">12 handled privately today →</a>
+      </div>
+    </section>
+    <!-- HANDLED AUDIT -->
+    <section class="win">
+      <div class="ftitle">Handled privately — audit</div>
+      <div class="bar"><a class="back">← Inbox</a><span class="bar-right"><span class="kind">12 today</span></span></div>
+      <div class="body">
+        <div class="intro">Your assistant answered these without needing you — using only what you've allowed. Review anything.</div>
+        <div class="hitem"><span class="tick">✓</span><span class="hmain">
+          <span class="hwho">Devon's assistant</span>
+          <div class="hwhat">"Is the staging URL still up?"</div>
+          <div class="hdid">answered from your shared project notes</div>
+          <a class="hview">view reply →</a></span><span class="htime">9:14</span></div>
+        <div class="hitem"><span class="tick">✓</span><span class="hmain">
+          <span class="hwho">Mara's assistant</span>
+          <div class="hwhat">Status ping</div>
+          <div class="hdid">replied automatically · on your allow-list</div>
+          <a class="hview">view reply →</a></span><span class="htime">8:40</span></div>
+        <div class="hitem"><span class="tick">✓</span><span class="hmain">
+          <span class="hwho">Priya's assistant</span>
+          <div class="hwhat">"Which repo holds the onboarding flow?"</div>
+          <div class="hdid">answered from general context · touched nothing private</div>
+          <a class="hview">view reply →</a></span><span class="htime">8:02</span></div>
+      </div>
+    </section>
+  </div>
+</body></html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Assist — Warm</title>
+<style>
+  :root{
+    --cream:#FFF9F2; --card:#FFFFFF; --ink:#2B2521; --muted:#8A7F74; --faint:#B4A99C;
+    --line:#F0E6DA; --accent:#D9743B; --accent-2:#E8A06A; --accent-soft:#FCEEE2;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:linear-gradient(160deg,#FBEEE2,#F6EAF0);font-family:var(--sans);color:var(--ink);
+    -webkit-font-smoothing:antialiased;padding:34px 28px;min-height:100vh}
+  .caption{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--muted);
+    text-transform:uppercase;margin:0 auto 18px;max-width:1020px}
+  .caption b{color:var(--ink);font-weight:700}
+  .frames{display:flex;gap:24px;max-width:1020px;margin:0 auto;align-items:flex-start}
+  .win{flex:1;background:var(--cream);border-radius:20px;overflow:hidden;
+    box-shadow:0 30px 60px -34px rgba(150,90,40,.5),0 2px 0 rgba(255,255,255,.7) inset}
+  .bar{display:flex;align-items:center;gap:11px;padding:18px 20px 14px}
+  .wm{font-size:17px;font-weight:800;letter-spacing:-.02em}
+  .wm .dot{color:var(--accent)}
+  .bar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .pill{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-soft);
+    padding:6px 11px;border-radius:999px;display:flex;gap:6px;align-items:center}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .link{font-size:13px;color:var(--muted);text-decoration:none;font-weight:600}
+  .body{padding:8px 18px 22px}
+  .ihead{font-size:23px;font-weight:800;letter-spacing:-.02em;padding:0 4px;margin-bottom:3px}
+  .isub{font-size:13px;color:var(--muted);padding:0 4px;margin-bottom:16px}
+  ul{list-style:none}
+  .row{display:flex;gap:13px;padding:14px;border-radius:15px;cursor:pointer;background:transparent}
+  .row+.row{margin-top:7px}
+  .row:hover{background:#FFF4EA}
+  .row.sel{background:var(--card);box-shadow:0 14px 30px -20px rgba(150,90,40,.55)}
+  .av{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;
+    font-weight:800;font-size:15px;color:#fff}
+  .av.m{background:linear-gradient(135deg,#E8884E,#D9743B)}
+  .av.d{background:linear-gradient(135deg,#6FA8DC,#4C7FB8)}
+  .av.p{background:linear-gradient(135deg,#9C7BD0,#7B5BB0)}
+  .rmain{flex:1;min-width:0}
+  .rtop{display:flex;align-items:baseline;gap:8px}
+  .who{font-size:14px;font-weight:700}
+  .ago{margin-left:auto;font-size:11.5px;color:var(--faint);font-weight:600}
+  .ask{font-size:13.5px;color:#5E544A;line-height:1.45;margin-top:3px}
+  .handled{margin:16px 4px 0;padding:14px 15px;border-radius:13px;background:#FBF2E8;
+    font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .handled b{color:var(--ink)}
+  /* review */
+  .back{font-size:13px;color:var(--muted);text-decoration:none;font-weight:700}
+  .rv-head{display:flex;align-items:center;gap:12px;padding:2px 4px;margin-bottom:16px}
+  .rv-from{font-size:13.5px;color:var(--muted)}
+  .rv-from b{color:var(--ink);font-weight:700}
+  .bubble{background:var(--accent-soft);border-radius:16px 16px 16px 4px;padding:15px 17px;
+    font-size:15px;line-height:1.45;color:#5A3D29;margin-bottom:22px;font-weight:500}
+  .lbl{font-size:12px;font-weight:700;color:var(--accent);margin:0 2px 9px;letter-spacing:.01em}
+  .draft{background:var(--card);border-radius:16px 16px 4px 16px;padding:16px 17px;
+    font-size:14.5px;line-height:1.6;color:#3A332C;box-shadow:0 12px 26px -20px rgba(150,90,40,.5)}
+  .draft p+p{margin-top:10px}
+  .note{margin:14px 2px 0;font-size:12px;color:var(--faint);line-height:1.5}
+  .actions{display:flex;gap:10px;margin-top:22px;align-items:center;padding:0 2px}
+  .btn{font-family:var(--sans);font-size:13.5px;font-weight:700;padding:12px 17px;border-radius:13px;
+    border:none;cursor:pointer}
+  .btn.ghost{background:none;color:var(--muted)}
+  .btn.outline{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+  .btn.primary{margin-left:auto;background:var(--accent);color:#fff;
+    box-shadow:0 10px 22px -10px rgba(217,116,59,.8)}
+</style></head>
+<body>
+  <div class="caption">Direction 2 — <b>Warm</b> · friendly, rounded, you-in-charge</div>
+  <div class="frames">
+    <!-- INBOX -->
+    <section class="win">
+      <div class="bar">
+        <span class="wm">assist<span class="dot">.</span></span>
+        <span class="bar-right"><span class="pill">Private</span><a class="link">Connections</a></span>
+      </div>
+      <div class="body">
+        <div class="ihead">Your inbox</div>
+        <div class="isub">3 things need your call</div>
+        <ul>
+          <li class="row sel">
+            <span class="av m">M</span>
+            <span class="rmain">
+              <span class="rtop"><span class="who">Mara's assistant</span><span class="ago">2m</span></span>
+              <span class="ask">Can you share a summary of the Q2 launch retro?</span>
+            </span>
+          </li>
+          <li class="row">
+            <span class="av d">D</span>
+            <span class="rmain">
+              <span class="rtop"><span class="who">Devon's assistant</span><span class="ago">14m</span></span>
+              <span class="ask">What's your availability for a 30-min sync Thursday?</span>
+            </span>
+          </li>
+          <li class="row">
+            <span class="av p">P</span>
+            <span class="rmain">
+              <span class="rtop"><span class="who">Priya's assistant</span><span class="ago">1h</span></span>
+              <span class="ask">Do you approve reusing your onboarding checklist?</span>
+            </span>
+          </li>
+        </ul>
+        <div class="handled">🔒 <span><b>12 handled privately</b> today — none needed you.</span></div>
+      </div>
+    </section>
+    <!-- REVIEW -->
+    <section class="win">
+      <div class="bar">
+        <a class="back">← Inbox</a>
+        <span class="bar-right"><span class="pill">Private</span></span>
+      </div>
+      <div class="body">
+        <div class="rv-head">
+          <span class="av m">M</span>
+          <span class="rv-from"><b>Mara's assistant</b><br>is asking · 2 minutes ago</span>
+        </div>
+        <div class="bubble">Can you share a summary of the Q2 launch retro?</div>
+        <div class="lbl">Your assistant drafted a reply</div>
+        <div class="draft">
+          <p>Here's the short version: the rollout hit its date, activation came in 12% over target, and the main friction was onboarding email deliverability.</p>
+          <p>Top fix for next quarter is a warm-up sequence for new sending domains. Happy to share the full doc if useful.</p>
+        </div>
+        <div class="note">Written by your assistant in your private space. Nothing sends until you say so.</div>
+        <div class="actions">
+          <button class="btn ghost">Decline</button>
+          <button class="btn outline">Follow up</button>
+          <button class="btn primary">Approve &amp; send</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</body></html>

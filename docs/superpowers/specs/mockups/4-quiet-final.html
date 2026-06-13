@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Assist — Quiet (refined)</title>
+<style>
+  :root{
+    --paper:#FBFAF7; --ink:#1B1A17; --muted:#7C766B; --faint:#A8A296;
+    --line:#E8E3D8; --accent:#34357A; --accent-soft:#EDEDF6;
+    --serif:ui-serif,"New York",Georgia,serif;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#EFEDE6;font-family:var(--sans);color:var(--ink);
+    -webkit-font-smoothing:antialiased;padding:32px 26px}
+  .caption{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--muted);
+    text-transform:uppercase;margin:0 auto 18px;max-width:1460px}
+  .caption b{color:var(--ink);font-weight:600}
+  .frames{display:flex;gap:22px;max-width:1460px;margin:0 auto;align-items:flex-start}
+  .win{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;box-shadow:0 18px 40px -28px rgba(40,38,30,.45)}
+  .bar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .dots{display:flex;gap:6px}.dots i{width:10px;height:10px;border-radius:50%;background:#DcD7CB;display:block}
+  .wm{font-family:var(--serif);font-size:16px;font-weight:600;letter-spacing:-.01em}
+  .bar-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .pill{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--accent);background:var(--accent-soft);padding:4px 9px;border-radius:999px;display:flex;gap:5px;align-items:center}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .link{font-size:13px;color:var(--muted);text-decoration:none}
+  .body{padding:22px 20px 24px}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  /* setup */
+  .setup{text-align:center;padding:30px 26px 30px}
+  .setup .mark{width:54px;height:54px;border-radius:50%;border:1.5px solid var(--accent);
+    margin:6px auto 20px;display:grid;place-items:center;font-family:var(--serif);font-size:24px;color:var(--accent)}
+  .setup h1{font-family:var(--serif);font-size:25px;letter-spacing:-.02em;margin-bottom:10px}
+  .setup p{font-size:13.5px;color:var(--muted);line-height:1.55;max-width:300px;margin:0 auto 22px}
+  .pbtn{background:var(--ink);color:#fff;border:none;font-size:14px;font-weight:600;
+    padding:12px 26px;border-radius:10px;cursor:pointer;font-family:var(--sans)}
+  .or{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);margin:24px 0 14px;position:relative}
+  .or::before,.or::after{content:"";position:absolute;top:50%;width:34%;height:1px;background:var(--line)}
+  .or::before{left:0}.or::after{right:0}
+  .field{display:block;text-align:left;max-width:320px;margin:0 auto 10px}
+  .field span{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px}
+  .field input{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;
+    font-family:var(--mono);font-size:12.5px;color:var(--ink);background:#fff}
+  .gbtn{background:#fff;border:1px solid var(--line);font-size:13px;padding:9px 18px;border-radius:8px;
+    cursor:pointer;color:var(--ink);margin-top:4px;font-family:var(--sans)}
+  .setup .foot{font-size:11.5px;color:var(--faint);max-width:300px;margin:22px auto 0;line-height:1.5}
+  /* inbox */
+  .ihead{font-family:var(--serif);font-size:21px;letter-spacing:-.01em;margin-bottom:2px}
+  .isub{font-size:12.5px;color:var(--faint);margin-bottom:16px}
+  ul{list-style:none}
+  .row{display:flex;gap:12px;padding:13px 12px;border-radius:9px;cursor:pointer;border:1px solid transparent}
+  .row+.row{margin-top:2px}
+  .row:hover{background:#F4F2EB}
+  .row.sel{background:#fff;border-color:var(--line);box-shadow:0 8px 20px -16px rgba(40,38,30,.5)}
+  .av{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;
+    font-size:12px;font-weight:600;color:var(--muted);background:#EFECE3;border:1px solid var(--line)}
+  .rmain{flex:1;min-width:0}
+  .rtop{display:flex;align-items:baseline;gap:8px}
+  .who{font-size:13.5px;font-weight:600}
+  .ago{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .ask{font-size:13.5px;color:#403B33;line-height:1.45;margin-top:3px}
+  .handled{margin-top:18px;padding-top:15px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--faint);display:flex;align-items:center;gap:7px}
+  .handled b{color:var(--muted);font-weight:600}
+  /* review */
+  .back{font-size:13px;color:var(--muted);text-decoration:none}
+  .kind{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+  .rv-from{font-size:12.5px;color:var(--faint);margin-bottom:14px}
+  .rv-from b{color:var(--ink);font-weight:600}
+  .quote{font-family:var(--serif);font-size:18px;line-height:1.4;letter-spacing:-.01em;
+    color:var(--ink);padding-left:15px;border-left:2px solid var(--accent);margin-bottom:20px}
+  .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .draft{background:#F6F4ED;border:1px solid var(--line);border-radius:10px;padding:15px 16px;
+    font-size:14px;line-height:1.58;color:#2C281F}
+  .draft p+p{margin-top:9px}
+  /* follow-up composer (open state) */
+  .compose{margin-top:14px;border:1px solid var(--accent);border-radius:10px;overflow:hidden;
+    box-shadow:0 10px 26px -18px rgba(52,53,122,.6)}
+  .compose .ch{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--accent);padding:9px 13px;border-bottom:1px solid var(--accent-soft);background:#FAFAFE}
+  .compose textarea{width:100%;border:none;resize:none;padding:12px 13px;font-family:var(--sans);
+    font-size:13.5px;color:var(--ink);line-height:1.5;outline:none;background:#fff}
+  .compose .crow{display:flex;justify-content:flex-end;padding:9px 11px;border-top:1px solid var(--accent-soft);background:#FAFAFE}
+  .csend{background:var(--accent);color:#fff;border:none;font-size:12.5px;font-weight:600;padding:8px 15px;border-radius:8px;cursor:pointer}
+  .actions{display:flex;gap:10px;margin-top:18px;align-items:center}
+  .btn{font-family:var(--sans);font-size:13.5px;padding:10px 16px;border-radius:9px;border:1px solid var(--line);
+    background:#fff;color:var(--ink);cursor:pointer;font-weight:500}
+  .btn.ghost{border:none;background:none;color:var(--muted);padding-left:4px}
+  .btn.outline.active{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .btn.primary{margin-left:auto;background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
+</style></head>
+<body>
+  <div class="caption">Direction 1 — <b>Quiet (refined)</b> · subtle avatars · the full v1 flow: Set up → Inbox → Review (Follow up open)</div>
+  <div class="frames">
+    <!-- SET UP -->
+    <section class="win">
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="wm">Assist</span></div>
+      <div class="body setup">
+        <div class="mark">a</div>
+        <h1>Set up your assistant</h1>
+        <p>Your assistant works for you in a private space only you control. Connect to it to begin.</p>
+        <button class="pbtn">Set up →</button>
+        <div class="or">or connect to a running space</div>
+        <label class="field"><span>Space address</span><input value="localhost:8080"></label>
+        <label class="field"><span>Setup token</span><input value="•••• •••• ••••" ></label>
+        <button class="gbtn">Connect →</button>
+        <div class="foot">Nothing is shared without your okay. Replies are written by your assistant and only sent when you approve.</div>
+      </div>
+    </section>
+    <!-- INBOX -->
+    <section class="win">
+      <div class="bar">
+        <span class="wm">Assist</span>
+        <span class="bar-right"><span class="pill">Private</span><a class="link">Connections</a></span>
+      </div>
+      <div class="body">
+        <div class="ihead">Inbox</div>
+        <div class="isub">3 requests need you</div>
+        <ul>
+          <li class="row sel"><span class="av">M</span><span class="rmain">
+            <span class="rtop"><span class="who">Mara's assistant</span><span class="ago">2m</span></span>
+            <span class="ask">Can you share a summary of the Q2 launch retro?</span></span></li>
+          <li class="row"><span class="av">D</span><span class="rmain">
+            <span class="rtop"><span class="who">Devon's assistant</span><span class="ago">14m</span></span>
+            <span class="ask">What's your availability for a 30-min sync Thursday?</span></span></li>
+          <li class="row"><span class="av">P</span><span class="rmain">
+            <span class="rtop"><span class="who">Priya's assistant</span><span class="ago">1h</span></span>
+            <span class="ask">Do you approve reusing your onboarding checklist?</span></span></li>
+        </ul>
+        <div class="handled"><b>Handled privately</b> · 12 today, none needed you</div>
+      </div>
+    </section>
+    <!-- REVIEW (follow-up open) -->
+    <section class="win">
+      <div class="bar"><a class="back">← Inbox</a><span class="bar-right"><span class="kind">needs you</span></span></div>
+      <div class="body">
+        <div class="rv-from"><b>Mara's assistant</b> is asking — 2 minutes ago</div>
+        <div class="quote">Can you share a summary of the Q2 launch retro?</div>
+        <div class="lbl">Your assistant drafted a reply</div>
+        <div class="draft">
+          <p>Here's the short version of the Q2 launch retro: the rollout hit its date, activation came in 12% over target, and the main friction was onboarding email deliverability.</p>
+          <p>The team's top fix for next quarter is a warm-up sequence for new sending domains.</p>
+        </div>
+        <div class="compose">
+          <div class="ch">Follow up — ask your assistant to adjust</div>
+          <textarea rows="2">Keep it to two sentences and don't mention the deliverability issue.</textarea>
+          <div class="crow"><button class="csend">Send to assistant →</button></div>
+        </div>
+        <div class="actions">
+          <button class="btn ghost">Decline</button>
+          <button class="btn outline active">Follow up</button>
+          <button class="btn primary">Approve &amp; send</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</body></html>

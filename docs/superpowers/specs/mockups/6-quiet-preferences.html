@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Assist — Preferences</title>
+<style>
+  :root{
+    --paper:#FBFAF7; --ink:#1B1A17; --muted:#7C766B; --faint:#A8A296;
+    --line:#E8E3D8; --accent:#34357A; --accent-soft:#EDEDF6; --green:#3C6E4F; --green-soft:#E9F0EA;
+    --serif:ui-serif,"New York",Georgia,serif;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#EFEDE6;font-family:var(--sans);color:var(--ink);
+    -webkit-font-smoothing:antialiased;padding:32px 26px}
+  .caption{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--muted);
+    text-transform:uppercase;margin:0 auto 18px;max-width:1000px}
+  .caption b{color:var(--ink);font-weight:600}
+  .frames{display:flex;gap:22px;max-width:1000px;margin:0 auto;align-items:flex-start}
+  .win{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;box-shadow:0 18px 40px -28px rgba(40,38,30,.45)}
+  .bar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .back{font-size:13px;color:var(--muted);text-decoration:none}
+  .wm{font-family:var(--serif);font-size:16px;font-weight:600}
+  .bar-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .pill{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--accent);background:var(--accent-soft);padding:4px 9px;border-radius:999px;display:flex;gap:5px;align-items:center}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .body{padding:18px 20px 22px}
+  .h{font-family:var(--serif);font-size:20px;letter-spacing:-.01em;margin-bottom:14px}
+  .sec{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:20px 2px 5px}
+  .sec:first-of-type{margin-top:2px}
+  .secsub{font-size:12px;color:var(--muted);margin:0 2px 8px;line-height:1.45}
+  /* connection rows */
+  .conn{display:flex;align-items:center;gap:11px;padding:12px 2px;border-bottom:1px solid var(--line)}
+  .av{width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;
+    font-size:11px;font-weight:600;color:var(--muted);background:#EFECE3;border:1px solid var(--line)}
+  .cn{flex:1;font-size:13.5px;font-weight:500}
+  .cval{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .cval.auto{color:var(--green)}
+  .chev{color:var(--faint);font-size:14px}
+  /* toggle settings */
+  .set{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line)}
+  .setmain{flex:1}
+  .set .t{font-size:13.5px}
+  .set .d{font-size:11.5px;color:var(--faint);margin-top:2px;line-height:1.4}
+  .sw{width:34px;height:20px;border-radius:999px;background:#DCD7CB;position:relative;flex:none}
+  .sw.on{background:var(--accent)}
+  .sw.lock{background:#EDEAE1}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+  .sw.on::after{left:16px}
+  .lockx{font-family:var(--mono);font-size:9.5px;color:var(--faint);flex:none}
+  .add{font-size:13px;color:var(--accent);padding:12px 2px;cursor:pointer;display:flex;gap:7px;align-items:center}
+  .note{font-size:11.5px;color:var(--faint);line-height:1.5;margin-top:10px;padding:11px 12px;background:#F4F2EB;border-radius:8px}
+  /* knowledge / folders */
+  .item{display:flex;align-items:center;gap:11px;padding:12px 2px;border-bottom:1px solid var(--line)}
+  .ic{width:26px;height:26px;border-radius:6px;background:#EFEDF6;border:1px solid var(--line);display:grid;place-items:center;color:var(--accent);font-size:12px;flex:none}
+  .iname{flex:1;font-size:13.5px}
+  .imeta{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .path{font-family:var(--mono);font-size:12.5px}
+  .ok{color:var(--green);font-size:12px}
+  .off{font-family:var(--mono);font-size:11px;color:var(--faint);padding:12px 2px}
+</style></head>
+<body>
+  <div class="caption">Direction 1 — <b>Quiet · Preferences</b> · who can reach you · what's auto-handled · what's inside · what it can read</div>
+  <div class="frames">
+    <!-- ACCESS + RULES -->
+    <section class="win">
+      <div class="bar"><a class="back">← Inbox</a><span class="bar-right"><span class="pill">Private</span></span></div>
+      <div class="body">
+        <div class="h">Preferences</div>
+
+        <div class="sec">Connections — who can reach your assistant</div>
+        <div class="conn"><span class="av">M</span><span class="cn">Mara</span><span class="cval auto">auto-handles simple Qs</span><span class="chev">›</span></div>
+        <div class="conn"><span class="av">D</span><span class="cn">Devon</span><span class="cval">always ask me</span><span class="chev">›</span></div>
+        <div class="conn"><span class="av">P</span><span class="cn">Priya</span><span class="cval">always ask me</span><span class="chev">›</span></div>
+        <div class="conn"><span class="av">+</span><span class="cn" style="color:var(--muted)">Anyone new</span><span class="cval">always ask me</span><span class="chev">›</span></div>
+
+        <div class="sec">Auto-handle — what your assistant can answer without you</div>
+        <div class="set"><span class="setmain"><div class="t">Status &amp; availability pings</div></span><span class="sw on"></span></div>
+        <div class="set"><span class="setmain"><div class="t">Read-only questions from connections</div></span><span class="sw on"></span></div>
+        <div class="set"><span class="setmain"><div class="t">Share summaries of allowed notes</div><div class="d">drafts a summary, never the raw notes</div></span><span class="sw"></span></div>
+        <div class="set"><span class="setmain"><div class="t">Anything that reads a private folder</div><div class="d">always comes to you — can't be automated</div></span><span class="lockx">always ask</span></div>
+        <div class="note">Everything not switched on here comes to your inbox for your call.</div>
+      </div>
+    </section>
+
+    <!-- KNOWLEDGE + DATA -->
+    <section class="win">
+      <div class="bar"><span class="wm">Assist</span><span class="bar-right"><span class="pill">Private</span></span></div>
+      <div class="body">
+        <div class="h">What your assistant knows</div>
+
+        <div class="sec">In your private space — what it can draw on</div>
+        <div class="secsub">Notes, docs, or a profile you add here live in your assistant's private space and never leave it.</div>
+        <div class="item"><span class="ic">▤</span><span class="iname">Q2 launch notes</span><span class="imeta">added Jun 2</span></div>
+        <div class="item"><span class="ic">◑</span><span class="iname">About me &amp; how I work</span><span class="imeta">profile</span></div>
+        <div class="add">＋ Add notes, a doc, or a profile</div>
+
+        <div class="sec">Folders it can read on this computer</div>
+        <div class="secsub">Deny-by-default. Only folders you add can ever be read, and secrets are masked before your assistant sees them.</div>
+        <div class="item"><span class="ic">▢</span><span class="iname"><span class="path">~/work/launch</span></span><span class="imeta">read-only · secrets hidden <span class="ok">✓</span></span></div>
+        <div class="off">No other folders are accessible.</div>
+        <div class="add">＋ Add a folder</div>
+
+        <div class="note">Reading a local folder always needs your okay in the moment — even after you add it here.</div>
+      </div>
+    </section>
+  </div>
+</body></html>
