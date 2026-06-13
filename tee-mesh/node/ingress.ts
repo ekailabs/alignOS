@@ -5,6 +5,8 @@ import type { NodeCard } from "./cards.ts";
 import type { Directory } from "./gossip.ts";
 import type { Identity } from "./identity.ts";
 import { appendEvent } from "./eventlog.ts";
+import { handleA2A } from "./a2a.ts";
+import type { TaskStore, Policy } from "./inbox.ts";
 
 const STALE_MS = 90_000;
 
@@ -14,6 +16,8 @@ export interface IngressCtx {
   dir: Directory;
   agents: Map<string, string>; // name -> internal container url
   identity: Identity;
+  store: TaskStore; // assist-remote A2A task store
+  policy?: Policy; // needs-human policy (defaults to "everything needs the human")
 }
 
 export function makeHandler(ctx: IngressCtx) {
@@ -47,6 +51,12 @@ export function makeHandler(ctx: IngressCtx) {
         agents: [...ctx.agents.keys()], peers: ctx.dir.all().length,
       });
     }
+
+    // A2A surface (assist-remote). Public for peers; /owner/* for the owner's client.
+    // TODO(phase 2): wrap /owner/* in the Ed25519 owner-auth envelope check.
+    const a2a = { store: ctx.store, policy: ctx.policy, selfId: ctx.selfId };
+    if (p === "/a2a" && req.method === "POST") return handleA2A(a2a, req, false);
+    if (p === "/owner/a2a" && req.method === "POST") return handleA2A(a2a, req, true);
 
     const m = p.match(/^\/agents\/([^/]+)(\/.*)?$/);
     if (m) return proxyAgent(ctx, req, url, m[1], m[2] ?? "/");

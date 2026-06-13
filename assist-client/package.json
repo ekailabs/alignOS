@@ -1,0 +1,15 @@
+{
+  "name": "assist-client",
+  "version": "0.1.0",
+  "description": "alignOS Assist — the human's local client (CLI + Electron app). Standalone.",
+  "bin": { "alignos": "bin/alignos" },
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "cli": "node bin/alignos"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}

@@ -1,0 +1,93 @@
+#!/usr/bin/env node
+'use strict';
+// alignOS Assist CLI — the headless surface over the same logic the Electron app uses.
+//   alignos setup --url <gateway>      connect to your private space
+//   alignos status                     connection health
+//   alignos inbox                      requests that need you
+//   alignos show <id>                  one request + the drafted reply
+//   alignos approve <id>               send the reply
+//   alignos followup <id> --msg <t>    ask the assistant to revise (--msg - reads stdin)
+//   alignos decline <id> [--note <t>]  refuse
+const mc = require('../src/mesh-client');
+const cfg = require('../src/config');
+const store = require('../src/inbox-store');
+
+const argv = process.argv.slice(2);
+const flag = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined; };
+const text = (parts = []) => parts.filter((p) => p.kind === 'text').map((p) => p.text).join('\n');
+
+// Accept a short id prefix (as shown by `inbox`) and resolve it to the full task id.
+async function resolveId(s) {
+  if (!s) throw new Error('a task id is required');
+  if (s.length >= 36) return s;
+  const all = await mc.rpc('tasks/list', {}, { owner: true });
+  const hits = all.filter((t) => t.id.startsWith(s));
+  if (hits.length === 1) return hits[0].id;
+  throw new Error(hits.length ? `ambiguous id "${s}"` : `no task matches "${s}"`);
+}
+
+async function main() {
+  const cmd = argv[0];
+  let id = argv[1] && !argv[1].startsWith('--') ? argv[1] : undefined;
+  if (['show', 'approve', 'followup', 'decline'].includes(cmd)) id = await resolveId(id);
+  switch (cmd) {
+    case 'setup': {
+      const url = flag('--url') || (argv[1] && !argv[1].startsWith('--') ? argv[1] : undefined);
+      if (!url) throw new Error('usage: alignos setup --url <gateway>');
+      cfg.save({ url: url.replace(/\/$/, '') });
+      console.log('connected to your private space:', url);
+      // TODO(phase 2): claim ownership with --token and register the owner key.
+      break;
+    }
+    case 'status':
+      console.log('private space:', cfg.load().url || '(not set — run: alignos setup --url <gateway>)');
+      break;
+    case 'inbox': {
+      const tasks = await mc.inbox();
+      if (!tasks.length) { console.log("You're all caught up — nothing needs you."); break; }
+      console.log(`${tasks.length} request(s) need you:\n`);
+      for (const t of tasks) {
+        const ask = text(t.history && t.history[0] && t.history[0].parts).replace(/\s+/g, ' ').slice(0, 64);
+        console.log(`  ${t.id.slice(0, 8)}  ${(t.from && t.from.display) || 'someone'} — "${ask}"  [${t.status.state}]`);
+      }
+      break;
+    }
+    case 'show': {
+      if (!id) throw new Error('usage: alignos show <id>');
+      const t = await mc.getTask(id);
+      console.log('from:   ', (t.from && t.from.display) || '?');
+      console.log('asked:  ', text(t.history && t.history[0] && t.history[0].parts));
+      console.log('draft:  ', text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts));
+      console.log('state:  ', t.status.state);
+      break;
+    }
+    case 'approve': {
+      if (!id) throw new Error('usage: alignos approve <id>');
+      const t = await mc.approve(id);
+      store.record({ taskId: id, verdict: 'approve' });
+      console.log('approved → sent.  task is now', t.status.state);
+      break;
+    }
+    case 'followup': {
+      if (!id) throw new Error('usage: alignos followup <id> --msg <text>');
+      let msg = flag('--msg');
+      if (msg === '-') msg = require('fs').readFileSync(0, 'utf8').trim();
+      const t = await mc.followup(id, msg || '');
+      store.record({ taskId: id, verdict: 'followup', instruction: msg });
+      console.log('follow-up sent; assistant re-drafted.  task is now', t.status.state);
+      break;
+    }
+    case 'decline': {
+      if (!id) throw new Error('usage: alignos decline <id> [--note <text>]');
+      const note = flag('--note');
+      const t = await mc.decline(id, note);
+      store.record({ taskId: id, verdict: 'decline', note });
+      console.log('declined.  task is now', t.status.state);
+      break;
+    }
+    default:
+      console.log('alignos: setup | status | inbox | show <id> | approve <id> | followup <id> --msg <t> | decline <id> [--note <t>]');
+  }
+}
+
+main().catch((e) => { console.error('error:', e.message); process.exit(1); });

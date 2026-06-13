@@ -6,6 +6,7 @@ import { makeRegistry } from "./registry.ts";
 import { Directory, runGossip } from "./gossip.ts";
 import { makeHandler } from "./ingress.ts";
 import { appendEvent } from "./eventlog.ts";
+import { TaskStore } from "./inbox.ts";
 
 const env = (k: string, d?: string) => Deno.env.get(k) ?? d;
 
@@ -45,9 +46,13 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   Deno.addSignalListener(sig, () => { stop.abort(); Deno.exit(0); });
 }
 
+// assist-remote: the A2A task store (file-backed; one file per node via ALIGN_TASKS).
+const store = new TaskStore();
+await store.load();
+
 // Serve immediately — the gateway must always find a healthy backend. Registration and
 // gossip run in the background so a slow/unreachable chain never blocks serving.
-const handler = makeHandler({ selfId: identity.node_id, getSelfCard: () => selfCard, dir, agents, identity });
+const handler = makeHandler({ selfId: identity.node_id, getSelfCard: () => selfCard, dir, agents, identity, store });
 Deno.serve({ port, hostname: "0.0.0.0" }, handler);
 console.log(`[alignos] serving on :${port} gateway=${gatewayUrl}`);
 
