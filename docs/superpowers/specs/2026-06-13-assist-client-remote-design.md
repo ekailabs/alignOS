@@ -229,16 +229,16 @@ possible and keeps `assist-remote` a separate process.
 |---|---|---|
 | `src/mesh-client.js` | Owner-auth A2A client: `tasks/list`/`get`/`cancel`, finalizing/follow-up `message/send`, SSE `tasks/resubscribe`, signs the owner envelope. | new |
 | `src/inbox-store.js` | Edge cache of `Task`s + thin envelope + append-only `decisions.jsonl`. | new |
-| `src/scope.js` | Deny-by-default local-data permission store (folders + the Claude/Codex log paths), keyed on full path. | lift daybook |
-| `src/redact.js` | Deterministic secret scrubber — pure, never throws. | lift daybook **verbatim** |
-| `src/transcripts.js` | Read + compact `~/.claude` / `~/.codex` sessions into a redacted slice for grounding. | lift/adapt daybook |
+| `src/scope.js` | Deny-by-default local-data permission store (folders + the Claude/Codex log paths), keyed on full path. | new |
+| `src/redact.js` | Deterministic secret scrubber — pure, never throws. | new |
+| `src/transcripts.js` | Read + compact `~/.claude` / `~/.codex` sessions into a redacted slice for grounding. | new |
 | `src/edge-reader.js` | For a local-data request: gather the scoped slice (`scope` + `redact` + `transcripts`) and hand it to `assist-remote`. | new |
-| `src/identity.js` | Generate owner keypair; claim with the setup token; store key (keychain/`0600`); sign requests. | adapt daybook `router.js` |
+| `src/identity.js` | Generate owner keypair; claim with the setup token; store key (keychain/`0600`); sign requests. | new |
 | `src/setup.js` | v1 connect flow: validate gateway URL + token, claim ownership, persist config, report health. | new |
-| `src/main.js` | Electron main; thin `ipcMain` handlers. | adapt daybook |
-| `src/preload.js` | contextBridge — only renderer↔main surface (`window.alignos.*`). | adapt daybook |
+| `src/main.js` | Electron main; thin `ipcMain` handlers. | new |
+| `src/preload.js` | contextBridge — only renderer↔main surface (`window.alignos.*`). | new |
 | `bin/alignos` | CLI shell — same `src/` calls, JSON/stdio. | new |
-| `renderer/{index.html,app.js,styles.css}` | Single-window vanilla-JS state machine. | adapt daybook |
+| `renderer/{index.html,app.js,styles.css}` | Single-window vanilla-JS state machine. | new |
 
 **Changed: `tee-mesh/node/` (Deno) — `assist-remote`**
 
@@ -246,7 +246,7 @@ possible and keeps `assist-remote` a separate process.
 |---|---|
 | `node/a2a.ts` (new) | A2A JSON-RPC/HTTP surface (v1 subset, §5); reuses the agent-card. |
 | `node/inbox.ts` (new) | Task store on **Deno KV** (durable, no dep), needs-human policy, human-review queue, SSE feed. |
-| `node/draft.ts` (new) | Draft/redraft the reply `Artifact` via a **model API call from inside the CVM** (ports daybook's `reflect.js` prompt-assembly; the inference transport is new). |
+| `node/draft.ts` (new) | Draft/redraft the reply `Artifact` via a **model API call from inside the CVM** (our own prompt-assembly + a model API call from inside the CVM). |
 | `node/knowledge.ts` (new) | Store synced notes/docs the assistant draws on. |
 | `node/owner.ts` (new) | Owner-auth verification (envelope §5) + setup-token mint/claim (§11). |
 | `node/ingress.ts` (edit) | Mount A2A + owner-authenticated routes (`tasks/list`, resolve turns, SSE); keep public mesh routes separate. |
@@ -322,7 +322,7 @@ Single-window state machine (daybook's `<section hidden>` swap; sticky action fo
 (audit) · Preferences · plus loading/error/success.
 
 - **Review** shows the asker (with a *Connected* trust chip), the ask, the read-only draft, a
-  **provenance** line (*"Drawn from your Q2 notes · nothing private left your space"*), and a
+  **provenance** line (*"Used your approved notes — raw local files weren't sent"*), and a
   **consequence** line (*"Approving sends this to Mara's assistant. You'll have a moment to
   undo."*) above **[Decline · Follow up · Approve]**.
 - **Three actions, no inline editing:** Approve sends; Follow up opens a small instruction box
@@ -389,16 +389,18 @@ client-initiated SSE; Deno KV task store; owner-auth envelope; `decisions.jsonl`
 
 ---
 
-## 13. What we reuse from router-daybook
+## 13. Design inspiration (router-daybook) — no code dependency
 
+`assist-client` is **standalone**: it does not import, vendor, or copy router-daybook.
+Daybook informs the **design and UX** only; every module here is written fresh.
+
+Patterns we borrow (re-implemented, not lifted):
 - **App skeleton:** Electron + vanilla-JS single-window state machine; `preload.js`
   contextBridge as the only renderer↔main surface; CommonJS `src/`; Node builtins, minimal deps.
-- **`redact.js`** — verbatim. **`scope.js`** + **`transcripts.js`** + the access-redaction UX
-  — now **v1** (the Claude/Codex-logs grounding).
-- **`reflect.js`** prompt-assembly pattern → `node/draft.ts` (inference transport is new: a
-  model API call from inside the CVM, not `claude -p`).
-- **`router.js`** → `identity.js` (connection/credential).
-- **Standalone-runnable modules** → the headless-core rule + the CLI.
+- **The "human is the gate" loop** and the calm, restraint-first product ethic.
+- **Deny-by-default scope + deterministic redaction** before anything leaves the device.
+- **Reading `~/.claude` / `~/.codex` sessions** as a local grounding source.
+- **Prompt-assembly** shape for drafting (the inference transport is our own).
 - **Ethic:** simple, calm, privacy-conscious, restraint; honest about what leaves.
 
 ---
@@ -427,7 +429,7 @@ client-initiated SSE; Deno KV task store; owner-auth envelope; `decisions.jsonl`
 - **Local mesh loop:** extend `scripts/local-test.sh` so a peer node sends a task, it lands in
   the owner queue, the CLI approves, and the reply is asserted at the peer — anvil, no TEE.
 - **Owner-auth + redact** get unit tests (pure-ish, high value): signature/replay accept-reject;
-  scrubber coverage (lifted).
+  scrubber coverage.
 - **`node --check`** syntax on every file; renderer `$('id')` ↔ `index.html` cross-check.
 - No automated UI tests; the headless core means the *logic* is testable without Electron.
 
