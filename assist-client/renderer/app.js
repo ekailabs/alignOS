@@ -31,7 +31,7 @@ const MOCK = (() => {
     skipOnboarding: async () => ({ ok: true }),
     seed: async () => ({
       uploaded: 66,
-      days: 30,
+      days: 7,
       bySource: { claude: 40, codex: 15, openclaw: 4, pi: 3, opencode: 2, hermes: 2 },
     }),
     health: async () => ({ ok: true }),
@@ -172,7 +172,7 @@ async function seedAndEnter() {
   clearInterval(_quoteTimer); _quoteTimer = null;
   if (res && res.bySource) {
     renderSeedSources(res.bySource);
-    $('seed-progress').textContent = `Seeded ${res.uploaded} prompt/output pairs from the last ${res.days || 30} days.`;
+    $('seed-progress').textContent = `Seeded ${res.uploaded} prompt/output pairs from the last ${res.days || 7} days.`;
     await new Promise((r) => setTimeout(r, 1500)); // let the ticks land
   }
   await loadInbox();
@@ -186,7 +186,7 @@ function openFromHash() {
   if (h === '#seeding') {
     setView('seeding'); _qi = 0; rotateQuote();
     renderSeedSources({ claude: 40, codex: 15, openclaw: 4, pi: 3, opencode: 2, hermes: 2 });
-    $('seed-progress').textContent = 'Seeded 66 prompt/output pairs from the last 30 days.';
+    $('seed-progress').textContent = 'Seeded 66 prompt/output pairs from the last 7 days.';
     return;
   }
   if (h === '#folders') return openFolders();

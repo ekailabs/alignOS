@@ -18,7 +18,7 @@ const hasFlag = (name) => argv.includes(name);
 const text = (parts = []) => parts.filter((p) => p.kind === 'text').map((p) => p.text).join('\n');
 function seedOpts() {
   if (hasFlag('--all')) return { days: null, maxPairs: 1500 };
-  const days = Number(flag('--days') || 30);
+  const days = Number(flag('--days') || 7);
   if (!Number.isFinite(days) || days <= 0) throw new Error('--days must be a positive number');
   return { days, maxPairs: 1500 };
 }

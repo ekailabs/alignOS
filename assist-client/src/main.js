@@ -36,7 +36,7 @@ ipcMain.handle('setup', async (_e, { url, token }) => {
   return { ok: true };
 });
 ipcMain.handle('seed', async () => {
-  const { pairs, stats } = agentLogs.ingestCorpus({ days: 30, maxPairs: 1500 });
+  const { pairs, stats } = agentLogs.ingestCorpus({ days: 7, maxPairs: 1500 });
   const r = await mc.uploadKnowledge(pairs);
   return { uploaded: r.count, sessions: stats.sessions, days: stats.days, bySource: stats.bySource };
 });

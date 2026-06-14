@@ -215,9 +215,9 @@ function stripCode(s) {
 
 // Moment 1: distill recent sessions into redacted { prompt -> final NL output } pairs —
 // the corpus that teaches the agent how the owner prompts/communicates. Tool output, code,
-// and snippets are removed; secrets redacted. Default is the last 30 days; pass days=null
+// and snippets are removed; secrets redacted. Default is the last 7 days; pass days=null
 // only for an explicit all-history import.
-function ingestCorpus({ days = 30, maxPairs = 2000, maxLen = 700, project = null } = {}) {
+function ingestCorpus({ days = 7, maxPairs = 2000, maxLen = 700, project = null } = {}) {
   const cutoff = days ? Date.now() - days * 86400000 : 0;
   const files = [];
   for (const { dir, source } of LOG_SOURCES) {
