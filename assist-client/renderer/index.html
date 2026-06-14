@@ -35,6 +35,8 @@
         Connect to it to begin.</p>
       <label class="field"><span>Space address</span>
         <input id="connect-url" value="http://localhost:8080" autocomplete="off" spellcheck="false" /></label>
+      <label class="field"><span>Setup token</span>
+        <input id="connect-token" placeholder="shown when your space starts" autocomplete="off" spellcheck="false" /></label>
       <button class="btn primary" id="connect-go">Connect →</button>
       <div class="err" id="connect-err" hidden></div>
       <p class="foot">Nothing is shared without your okay. Replies are written by your assistant
@@ -44,13 +46,13 @@
     <!-- FOLDERS (onboarding) -->
     <section class="card folders" id="folders" hidden>
       <h1 class="ihead">Folders your assistant can read</h1>
-      <p class="isub">We looked at which folders you work in — using only your local Claude &amp; Codex
-        history, on this computer. That scan never left your machine. Pick what your assistant may read;
+      <p class="isub">We looked at which folders you work in — using only local assistant logs
+        from Claude, Codex, Pi, and OpenCode on this computer. That scan never left your machine. Pick what your assistant may read;
         files stay on your device, secrets are masked, and nothing is shared without your okay.</p>
       <ul class="list" id="folders-list"></ul>
       <button class="link" id="folders-more" hidden></button>
       <button class="link" id="folders-add">＋ Add a folder…</button>
-      <label class="opt"><input type="checkbox" id="opt-history" checked> Use my Claude &amp; Codex history for these folders</label>
+      <label class="opt"><input type="checkbox" id="opt-history" checked> Use my local assistant logs for these folders</label>
       <label class="opt opt-adv"><input type="checkbox" id="opt-alllogs"> …also for all other projects <span class="adv">advanced</span></label>
       <div class="folders-actions">
         <button class="link" id="folders-skip">Skip for now</button>
@@ -115,6 +117,10 @@
         and the auto-handle allow-list are wired in the next slice.</div>
       <div class="sec">What your assistant knows</div>
       <div class="prefs-note">Notes you add live in your private space and never leave it.</div>
+      <div class="sec">Folders &amp; Deep Mode</div>
+      <div class="prefs-note">Your assistant reads local files only in Deep Mode — it proposes a
+        scoped request and you approve it each time. Choose which folders are eligible.</div>
+      <button class="link" id="prefs-folders" style="margin-top:8px">Manage folders →</button>
     </section>
 
     <!-- ERROR -->

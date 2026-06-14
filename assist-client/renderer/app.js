@@ -21,11 +21,11 @@ const MOCK = (() => {
     bootstrap: async () => ({ connected: true, onboarded: true, url: 'demo' }),
     setup: async () => ({ ok: true }),
     suggestFolders: async () => [
-      { path: '/Users/you/Documents/win26/ekai/alignOS', sessions: 11, lastActive: Date.now() - 3600000, sources: 'claude+codex' },
-      { path: '/Users/you/Documents/win26/ekai/ekai-gateway', sessions: 23, lastActive: Date.now() - 7 * 86400000, sources: 'claude+codex' },
-      { path: '/Users/you/Documents/win26/ekai/api-vault', sessions: 17, lastActive: Date.now() - 5 * 86400000, sources: 'claude+codex' },
+      { path: '/Users/you/Documents/win26/ekai/alignOS', sessions: 11, lastActive: Date.now() - 3600000, sources: 'agent logs' },
+      { path: '/Users/you/Documents/win26/ekai/ekai-gateway', sessions: 23, lastActive: Date.now() - 7 * 86400000, sources: 'agent logs' },
+      { path: '/Users/you/Documents/win26/ekai/api-vault', sessions: 17, lastActive: Date.now() - 5 * 86400000, sources: 'agent logs' },
       { path: '/Users/you/Documents/win26/ekai/router-daybook', sessions: 4, lastActive: Date.now() - 3600000, sources: 'claude' },
-      { path: '/Users/you/Documents/win26/docs', sessions: 121, lastActive: Date.now() - 3600000, sources: 'claude+codex' },
+      { path: '/Users/you/Documents/win26/docs', sessions: 121, lastActive: Date.now() - 3600000, sources: 'agent logs' },
     ],
     grantFolders: async () => ({ ok: true }),
     skipOnboarding: async () => ({ ok: true }),
@@ -71,7 +71,6 @@ async function boot() {
     const b = await api.bootstrap();
     if (MOCKED) $('priv').textContent = 'Private · demo';
     if (!b.connected) return setView('connect');
-    if (!b.onboarded) return openFolders();
     await loadInbox(); openFromHash();
   } catch (e) { fail(e.message); }
 }
@@ -175,8 +174,9 @@ async function openReview(id) {
 function wire() {
   $('connect-go').addEventListener('click', async () => {
     const url = $('connect-url').value.trim();
+    const token = $('connect-token').value.trim();
     if (!url) { $('connect-err').textContent = 'Enter your space address.'; $('connect-err').hidden = false; return; }
-    try { await api.setup({ url }); $('connect-err').hidden = true; openFolders(); }
+    try { await api.setup({ url, token }); $('connect-err').hidden = true; loadInbox(); }
     catch (e) { $('connect-err').textContent = e.message; $('connect-err').hidden = false; }
   });
   $('open-inbox').addEventListener('click', loadInbox);
@@ -184,6 +184,7 @@ function wire() {
   $('allclear-handled').addEventListener('click', loadHandled);
   $('handled-back').addEventListener('click', loadInbox);
   $('open-prefs').addEventListener('click', () => setView('prefs'));
+  $('prefs-folders').addEventListener('click', openFolders);
   $('prefs-back').addEventListener('click', loadInbox);
   $('rv-back').addEventListener('click', loadInbox);
   $('retry').addEventListener('click', boot);
