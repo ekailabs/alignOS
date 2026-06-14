@@ -29,7 +29,11 @@ const MOCK = (() => {
     ],
     grantFolders: async () => ({ ok: true }),
     skipOnboarding: async () => ({ ok: true }),
-    seed: async () => ({ uploaded: 60 }),
+    seed: async () => ({
+      uploaded: 66,
+      days: 30,
+      bySource: { claude: 40, codex: 15, openclaw: 4, pi: 3, opencode: 2, hermes: 2 },
+    }),
     health: async () => ({ ok: true }),
     pickFolder: async () => '/Users/you/Documents/example',
     inbox: async () => tasks.filter((t) => ['input-required', 'auth-required'].includes(t.status.state)),
@@ -56,12 +60,32 @@ const ago = (when) => {
   return Math.floor(s / 86400) + 'd';
 };
 
-const SECTIONS = ['loading', 'connect', 'seeding', 'folders', 'inbox', 'allclear', 'review', 'handled', 'prefs', 'error'];
+const SECTIONS = ['loading', 'welcome', 'connect', 'consent', 'seeding', 'folders', 'inbox', 'allclear', 'review', 'handled', 'prefs', 'error'];
 const OUTCOME = { completed: 'Sent', canceled: 'Declined', rejected: 'Declined' };
+const ONBOARDING = new Set(['loading', 'welcome', 'connect', 'consent', 'seeding']);
 function setView(v) {
   for (const s of SECTIONS) $(s).hidden = s !== v;
-  $('head').hidden = (v === 'loading' || v === 'connect');
+  $('head').hidden = ONBOARDING.has(v);
 }
+
+const QUOTES = [
+  '"Alone we can do so little; together we can do so much." — Helen Keller',
+  '"Coming together is a beginning; keeping together is progress; working together is success." — Henry Ford',
+  '"The strength of the team is each member; the strength of each member is the team." — Phil Jackson',
+  '"Talent wins games, but teamwork wins championships." — Michael Jordan',
+  '"None of us is as smart as all of us." — Ken Blanchard',
+  '"Coordination is just disagreement that learned some manners."',
+  '"An assistant aligned with everyone is aligned with no one — so we start with you."',
+  '"A computer once beat me at chess, but it was no match for me at kickboxing." — Emo Philips',
+];
+const SEED_SOURCES = [
+  ['claude', 'Claude'],
+  ['codex', 'Codex'],
+  ['openclaw', 'OpenClaw'],
+  ['pi', 'Pi'],
+  ['opencode', 'OpenCode'],
+  ['hermes', 'Hermes'],
+];
 
 let current = null;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 2200); }
@@ -96,7 +120,7 @@ async function boot() {
     const b = await api.bootstrap();
     if (MOCKED) $('priv').textContent = 'Private · demo';
     startHealthPolling();
-    if (!b.connected) return setView('connect');
+    if (!b.connected) return setView('welcome');
     await loadInbox(); openFromHash();
   } catch (e) { fail(e.message); }
 }
@@ -123,9 +147,34 @@ async function openFolders() {
 }
 
 // Onboarding step 3: seed the private space with the redacted prompt/output corpus, then enter.
+let _quoteTimer = null, _qi = 0;
+function rotateQuote() {
+  const el = $('seed-quote'); if (!el) return;
+  el.style.opacity = '0';
+  setTimeout(() => { el.textContent = QUOTES[_qi % QUOTES.length]; el.style.opacity = '1'; _qi++; }, 350);
+}
+function renderSeedSources(bySource) {
+  const el = $('seed-sources'); el.innerHTML = '';
+  for (const [key, label] of SEED_SOURCES) {
+    const n = bySource ? (bySource[key] || 0) : null;
+    const s = document.createElement('span');
+    s.className = 'src' + (bySource ? (n > 0 ? ' on' : ' none') : '');
+    s.innerHTML = `<span class="sm">✓</span>${esc(label)}${n ? ` · ${n}` : ''}`;
+    el.appendChild(s);
+  }
+}
 async function seedAndEnter() {
   setView('seeding');
-  try { await api.seed(); } catch (e) { /* non-fatal — proceed to the inbox */ }
+  _qi = 0; rotateQuote(); renderSeedSources(null);
+  if (!_quoteTimer) _quoteTimer = setInterval(rotateQuote, 3000);
+  let res = null;
+  try { res = await api.seed(); } catch (e) { /* non-fatal — proceed to the inbox */ }
+  clearInterval(_quoteTimer); _quoteTimer = null;
+  if (res && res.bySource) {
+    renderSeedSources(res.bySource);
+    $('seed-progress').textContent = `Seeded ${res.uploaded} prompt/output pairs from the last ${res.days || 30} days.`;
+    await new Promise((r) => setTimeout(r, 1500)); // let the ticks land
+  }
   await loadInbox();
 }
 
@@ -207,13 +256,16 @@ async function openReview(id) {
 function wire() {
   refreshBackendPreview();
   $('connect-url').addEventListener('input', refreshBackendPreview);
+  $('welcome-start').addEventListener('click', () => { setView('connect'); refreshBackendPreview(); });
   $('connect-go').addEventListener('click', async () => {
     const url = $('connect-url').value.trim();
     const token = $('connect-token').value.trim();
     if (!url) { $('connect-err').textContent = 'Enter your space address.'; $('connect-err').hidden = false; return; }
-    try { await api.setup({ url, token }); $('connect-err').hidden = true; seedAndEnter(); }
+    try { await api.setup({ url, token }); $('connect-err').hidden = true; setView('consent'); }
     catch (e) { $('connect-err').textContent = e.message; $('connect-err').hidden = false; }
   });
+  $('consent-approve').addEventListener('click', seedAndEnter);
+  $('consent-skip').addEventListener('click', loadInbox);
   $('open-inbox').addEventListener('click', loadInbox);
   $('open-handled').addEventListener('click', loadHandled);
   $('allclear-handled').addEventListener('click', loadHandled);

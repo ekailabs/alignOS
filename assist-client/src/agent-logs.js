@@ -8,14 +8,17 @@ const path = require('path');
 const { redact } = require('./redact');
 
 const HOME = os.homedir();
-// jsonl-based sources (one record per line). opencode is handled separately (structured
-// JSON store, not jsonl) — see opencodeFolders().
+// Owner-approved local agent-log roots. Keep this list narrow: raw logs never leave
+// the machine, and only redacted prompt/output pairs from these roots may be uploaded.
 const LOG_SOURCES = [
   { dir: path.join(HOME, '.claude'), source: 'claude' },
   { dir: path.join(HOME, '.codex'), source: 'codex' },
-  { dir: path.join(HOME, '.pi', 'agent', 'sessions'), source: 'pi' },
+  { dir: path.join(HOME, '.openclaw'), source: 'openclaw' },
+  { dir: path.join(HOME, '.pi'), source: 'pi' },
+  { dir: path.join(HOME, '.opencode'), source: 'opencode' },
+  { dir: path.join(HOME, '.hermes'), source: 'hermes' },
 ];
-const OPENCODE_STORAGE = path.join(HOME, '.local', 'share', 'opencode', 'storage');
+const OPENCODE_STORAGE = path.join(HOME, '.opencode', 'storage');
 const TEXT_EXTS = new Set(['.jsonl', '.ndjson', '.json', '.log', '.txt', '.md']);
 
 function walk(dir, out = []) {
@@ -210,10 +213,11 @@ function stripCode(s) {
     .trim();
 }
 
-// Moment 1: distill every session into redacted { prompt -> final NL output } pairs — the
-// corpus that teaches the agent how the owner prompts/communicates. Tool output, code, and
-// snippets are removed; secrets redacted. days=null = all history.
-function ingestCorpus({ days = null, maxPairs = 2000, maxLen = 700, project = null } = {}) {
+// Moment 1: distill recent sessions into redacted { prompt -> final NL output } pairs —
+// the corpus that teaches the agent how the owner prompts/communicates. Tool output, code,
+// and snippets are removed; secrets redacted. Default is the last 30 days; pass days=null
+// only for an explicit all-history import.
+function ingestCorpus({ days = 30, maxPairs = 2000, maxLen = 700, project = null } = {}) {
   const cutoff = days ? Date.now() - days * 86400000 : 0;
   const files = [];
   for (const { dir, source } of LOG_SOURCES) {
@@ -227,6 +231,7 @@ function ingestCorpus({ days = null, maxPairs = 2000, maxLen = 700, project = nu
   files.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
   const pairs = [];
+  const bySource = {};
   for (const f of files) {
     if (pairs.length >= maxPairs) break;
     const label = f.project.replace(/^-Users-[^-]+-/, '').replace(/-/g, '/');
@@ -247,11 +252,11 @@ function ingestCorpus({ days = null, maxPairs = 2000, maxLen = 700, project = nu
         prompt: redact(prompt).masked.slice(0, maxLen),
         output: redact(output).masked.slice(0, maxLen),
       });
+      bySource[f.source] = (bySource[f.source] || 0) + 1;
       if (pairs.length >= maxPairs) break;
     }
   }
-  return { pairs, stats: { pairs: pairs.length, sessions: files.length } };
+  return { pairs, stats: { pairs: pairs.length, sessions: files.length, bySource, days } };
 }
 
 module.exports = { LOG_SOURCES, digest, recentFiles, readSession, sessionCwd, suggestFolders, ingestCorpus };
-

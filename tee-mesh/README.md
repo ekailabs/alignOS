@@ -19,10 +19,11 @@ exchanging A2A-style **agent cards** plus how to connect to them. Trusted-setup 
 - **Agents = sibling containers** on an `internal` docker network. The node reverse-proxies
   `/agents/<name>/*` to them and is their sole egress; cross-CVM calls go node→node over the
   gateway. The node does not hold the docker socket.
-- **Node data = `/data` volume.** The TEE node persists A2A tasks to `/data/tasks.json` and
-  audit events to `/data/events.jsonl`, the peer discovery snapshot to `/data/peers.json`,
-  and redacted onboarding knowledge to `/data/knowledge.json`. This includes requests
-  handled for other users. Raw local agent logs are not mounted into the TEE; only
+- **Node data = `/data` volume.** The TEE node persists owner claim state to
+  `/data/owner.json`, A2A tasks to `/data/tasks.json`, audit events to
+  `/data/events.jsonl`, the peer discovery snapshot to `/data/peers.json`, and redacted
+  onboarding knowledge to `/data/knowledge.json`. This includes requests handled for other
+  users. Raw local agent logs are not mounted into the TEE; only
   redacted/compacted onboarding or Deep Mode slices are sent across.
 
 ## Node HTTP surface

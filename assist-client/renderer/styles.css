@@ -38,6 +38,32 @@ body{background:var(--bg);font-family:var(--sans);color:var(--ink);-webkit-font-
 .spinner{width:26px;height:26px;border:2px solid var(--line);border-top-color:var(--accent);
   border-radius:50%;margin:0 auto 16px;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.seed-quote{font-family:var(--serif);font-size:15px;font-style:italic;line-height:1.5;color:var(--ink);max-width:400px;margin:4px auto 18px;min-height:46px;transition:opacity .4s}
+.seed-sources{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:0 auto 14px}
+.src{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+.src .sm{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:9px;color:transparent}
+.src.on{color:var(--green)} .src.on .sm{border-color:var(--green);background:var(--green);color:#fff}
+.src.none{opacity:.45;text-decoration:line-through}
+/* tagline + privacy transparency */
+.tagline{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:-6px 0 14px}
+.leaves{text-align:left;max-width:380px;margin:6px auto 0;border:1px solid var(--line);border-radius:10px;padding:13px 15px;background:#F6F4ED}
+.leaves-row{font-size:12.5px;line-height:1.5;color:#403B33;display:flex;gap:8px;align-items:baseline}
+.leaves-row+.leaves-row{margin-top:5px}
+.lk{font-family:var(--mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.leaves-row.ok .lk{color:var(--green)} .leaves-row.no .lk{color:#9A3B2E}
+.redact-eg{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:11px 0 9px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.redact-eg code{background:#EFEDE6;border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+.redact-eg .arrow{color:var(--faint)}
+.leaves-dest{font-size:11.5px;color:var(--faint);border-top:1px solid var(--line);padding-top:9px}
+/* artsy seeding visual */
+.seed-art{width:104px;height:104px;margin:0 auto 16px;display:block}
+.seed-art .r{fill:none;stroke:var(--accent);stroke-width:1.5;opacity:0;transform-origin:60px 60px;animation:pulse 2.8s ease-out infinite}
+.seed-art .r2{animation-delay:.9s} .seed-art .r3{animation-delay:1.8s}
+.seed-art .core{fill:var(--accent);transform-origin:60px 60px;animation:breathe 2.8s ease-in-out infinite}
+.seed-art .orb{fill:var(--green);animation:orbit 4s linear infinite;transform-origin:60px 60px}
+@keyframes pulse{0%{transform:scale(.45);opacity:.55}80%{opacity:0}100%{transform:scale(2.3);opacity:0}}
+@keyframes breathe{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.15);opacity:1}}
+@keyframes orbit{to{transform:rotate(360deg)}}
 
 /* buttons */
 .btn{font-family:var(--sans);font-size:13.5px;padding:10px 16px;border-radius:9px;border:1px solid var(--line);

@@ -38,6 +38,7 @@ services:
       ALIGN_OWNER_DISPLAY_NAME: Albi
       ALIGN_SELF_URL: http://albi:8080
       ALIGN_MANIFEST: /app/manifest.json
+      ALIGN_OWNER_STATE: /data/owner.json
       ALIGN_TASKS: /data/tasks.json
       ALIGN_EVENTLOG: /data/events.jsonl
       ALIGN_PEERS: /data/peers.json
@@ -59,6 +60,7 @@ services:
       ALIGN_OWNER_DISPLAY_NAME: Andrew
       ALIGN_SELF_URL: http://andrew:8080
       ALIGN_MANIFEST: /app/manifest.json
+      ALIGN_OWNER_STATE: /data/owner.json
       ALIGN_TASKS: /data/tasks.json
       ALIGN_EVENTLOG: /data/events.jsonl
       ALIGN_PEERS: /data/peers.json
@@ -80,6 +82,7 @@ services:
       ALIGN_OWNER_DISPLAY_NAME: Shashank
       ALIGN_SELF_URL: http://shashank:8080
       ALIGN_MANIFEST: /app/manifest.json
+      ALIGN_OWNER_STATE: /data/owner.json
       ALIGN_TASKS: /data/tasks.json
       ALIGN_EVENTLOG: /data/events.jsonl
       ALIGN_PEERS: /data/peers.json

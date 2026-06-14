@@ -41,6 +41,8 @@ values (we hit `REGISTRY_RPC=...comREGISTRY_CONTRACT=0x...` → "invalid dns nam
 ## Persistent node data
 The node image declares `/data`, and the compose files mount it as a named volume. The node
 stores:
+- `ALIGN_OWNER_STATE=/data/owner.json` — claimed owner public key for signed `/owner/*`
+  routes.
 - `ALIGN_TASKS=/data/tasks.json` — A2A task history, including asks, drafts, approvals, and
   answers sent back to other users.
 - `ALIGN_EVENTLOG=/data/events.jsonl` — append-only operational/audit events.
@@ -119,6 +121,6 @@ Local dry-run (no TEE/Phala, fast): `bash scripts/compose-test.sh` (anvil + 3 co
 - [ ] images Public on ghcr, referenced by a fresh `:vN` tag
 - [ ] `.env` lines newline-terminated; no `#.env#` committed
 - [ ] config via env (`ALIGN_MANIFEST_JSON`, `SKILL`), not bind-mounts
-- [ ] node data volume mounted at `/data` (`tasks.json`, `events.jsonl`, `peers.json`, `knowledge.json`)
+- [ ] node data volume mounted at `/data` (`owner.json`, `tasks.json`, `events.jsonl`, `peers.json`, `knowledge.json`)
 - [ ] deploy → get app_id → set `ALIGN_SELF_URL` → upgrade `--cvm-id` → `cvms restart`
 - [ ] `--node-id 12` (prod7), default `--kms phala`

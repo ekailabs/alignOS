@@ -2,7 +2,7 @@
 # node + one skill container on an internal network (node is sole egress); dstack socket mounted.
 services:
   node:
-    image: ghcr.io/amiller/alignos-node:v4
+    image: ghcr.io/amiller/alignos-node:latest
     ports: ["8080:8080"]
     environment:
       ALIGN_SELF_URL: ${ALIGN_SELF_URL}
@@ -12,6 +12,7 @@ services:
       REGISTRY_CONTRACT: ${REGISTRY_CONTRACT}
       PRIVATE_KEY: ${PRIVATE_KEY}
       DSTACK_SOCKET: /var/run/dstack.sock
+      ALIGN_OWNER_STATE: /data/owner.json
       ALIGN_TASKS: /data/tasks.json
       ALIGN_EVENTLOG: /data/events.jsonl
       ALIGN_PEERS: /data/peers.json

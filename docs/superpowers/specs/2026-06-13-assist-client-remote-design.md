@@ -42,7 +42,7 @@ charge."*
 - **Demo assumption:** the operator has already provisioned the TEE machines; onboarding
   starts from gateway URLs + setup tokens, not from provisioning.
 - **Onboarding memory:** after claim, offer to seed the remote node with a redacted,
-  compacted agent-log digest from `~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`,
+  compacted 30-day agent-log digest from `~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`,
   `~/.opencode`, and `~/.hermes`.
 - **Two operating modes:** Quick Mode runs in the TEE from synced notes + logs-derived
   memory; Deep Mode runs locally when a task needs folders, files, or local tools.
@@ -243,7 +243,7 @@ everything needs the human until the owner opts specific things in.
 | Data | Where | Notes |
 |---|---|---|
 | Raw local agent logs (`~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`, `~/.opencode`, `~/.hermes`) | **Edge only** | Deny-by-default scope; `redact.js` masks secrets before anything leaves. |
-| Onboarding agent-log digest | Edge → **CVM** (redacted) | Optional after claim; compacted agent-log history from the approved roots, not raw logs or broad folder access. |
+| Onboarding agent-log digest | Edge → **CVM** (redacted) | Optional after claim; compacted 30-day agent-log history from the approved roots, not raw logs or broad folder access. |
 | Onboarding knowledge corpus | **CVM** `/data/knowledge.json` | Redacted prompt/output pairs used only for owner voice/style grounding in Quick Mode drafts. |
 | Local context slice for a request | Edge → **CVM** (redacted) | Only the minimal redacted slice needed to draft; on explicit in-the-moment approval. |
 | Notes/docs in "what it knows" | Synced into **CVM** (redacted) | So the assistant can draft from them anytime, asleep or awake. |

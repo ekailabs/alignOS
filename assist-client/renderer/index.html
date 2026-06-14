@@ -28,6 +28,17 @@
       <p class="status" id="loading-text">Connecting to your assistant…</p>
     </section>
 
+    <!-- WELCOME -->
+    <section class="card setup" id="welcome" hidden>
+      <div class="mark">◇</div>
+      <h1>Welcome to AlignOS</h1>
+      <p class="tagline">Human-Agent Coordination OS · AI-native, privacy-first</p>
+      <p class="lead">Your assistant works for you in a private space only you control —
+        answering and coordinating with other people's assistants, in your voice. You stay in charge.</p>
+      <button class="btn primary" id="welcome-start">Get started →</button>
+      <p class="foot">Nothing is shared without your okay.</p>
+    </section>
+
     <!-- CONNECT / SET UP -->
     <section class="card setup" id="connect" hidden>
       <div class="mark">a</div>
@@ -52,19 +63,34 @@
         and only sent when you approve.</p>
     </section>
 
+    <!-- CONSENT (before reading logs) -->
+    <section class="card setup" id="consent" hidden>
+      <div class="mark">◇</div>
+      <h1>Learn your style</h1>
+      <p class="lead">To answer in your voice, AlignOS reads your local assistant history —
+        <b>Claude, Codex, OpenClaw, Pi, OpenCode, and Hermes</b> — from the <b>last 30 days</b>, on this computer.
+        It distills <i>how you write</i> into a redacted digest; raw logs, code, and secrets never
+        leave your machine.</p>
+      <div class="folders-actions">
+        <button class="link" id="consent-skip">Not now</button>
+        <button class="btn primary" id="consent-approve">Approve &amp; continue →</button>
+      </div>
+    </section>
+
     <!-- SEEDING (onboarding step 3) -->
     <section class="card state" id="seeding" hidden>
       <div class="spinner"></div>
       <p class="status">Teaching your assistant your style…</p>
-      <p class="sub">Reading your local agent history and seeding your private space with a
-        redacted digest of how you write. Raw logs stay on your machine.</p>
+      <p class="seed-quote" id="seed-quote">…</p>
+      <div class="seed-sources" id="seed-sources"></div>
+      <p class="sub" id="seed-progress">Reading the last 30 days — raw logs stay on your machine.</p>
     </section>
 
     <!-- FOLDERS (onboarding) -->
     <section class="card folders" id="folders" hidden>
       <h1 class="ihead">Folders your assistant can read</h1>
       <p class="isub">We looked at which folders you work in — using only local assistant logs
-        from Claude, Codex, Pi, and OpenCode on this computer. That scan never left your machine. Pick what your assistant may read;
+        from Claude, Codex, OpenClaw, Pi, OpenCode, and Hermes on this computer. That scan never left your machine. Pick what your assistant may read;
         files stay on your device, secrets are masked, and nothing is shared without your okay.</p>
       <ul class="list" id="folders-list"></ul>
       <button class="link" id="folders-more" hidden></button>

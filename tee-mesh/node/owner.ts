@@ -11,7 +11,10 @@ const TOKEN_TTL_MS = 15 * 60_000;
 const SKEW_S = 60;
 
 function b64urlToBytes(s: string): Uint8Array {
-  const pad = s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=");
+  const pad = s.replace(/-/g, "+").replace(/_/g, "/").padEnd(
+    Math.ceil(s.length / 4) * 4,
+    "=",
+  );
   const bin = atob(pad);
   const u = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
@@ -52,16 +55,28 @@ export function ownerState() {
   };
 }
 
-export function claim(t: string, pubkeyB64: string): { ok: boolean; error?: string } {
+export function claim(
+  t: string,
+  pubkeyB64: string,
+): { ok: boolean; error?: string } {
   if (ownerKey) return { ok: false, error: "already claimed" };
   if (tokenUsed || t !== token) return { ok: false, error: "invalid token" };
   if (Date.now() > tokenExp) return { ok: false, error: "token expired" };
   let pk: Uint8Array;
-  try { pk = b64urlToBytes(pubkeyB64); } catch { return { ok: false, error: "bad pubkey" }; }
+  try {
+    pk = b64urlToBytes(pubkeyB64);
+  } catch {
+    return { ok: false, error: "bad pubkey" };
+  }
   if (pk.length !== 32) return { ok: false, error: "bad pubkey length" };
   ownerKey = pk;
   tokenUsed = true;
-  try { Deno.writeTextFileSync(STATE_PATH, JSON.stringify({ ownerPubHex: hex(pk) })); } catch { /* in-memory only */ }
+  try {
+    Deno.writeTextFileSync(
+      STATE_PATH,
+      JSON.stringify({ ownerPubHex: hex(pk) }),
+    );
+  } catch { /* in-memory only */ }
   return { ok: true };
 }
 
@@ -75,7 +90,12 @@ function rememberNonce(n: string) {
 }
 
 // Verify the Ed25519 owner envelope over: method\npath\nsha256hex(body)\ntimestamp\nnonce
-export function verifyOwner(method: string, path: string, bodyText: string, headers: Headers): boolean {
+export function verifyOwner(
+  method: string,
+  path: string,
+  bodyText: string,
+  headers: Headers,
+): boolean {
   if (!ownerKey) return false;
   const key = headers.get("x-align-key");
   const tsS = headers.get("x-align-timestamp");
@@ -83,15 +103,30 @@ export function verifyOwner(method: string, path: string, bodyText: string, head
   const sigS = headers.get("x-align-signature");
   if (!key || !tsS || !nonce || !sigS) return false;
   let keyBytes: Uint8Array, sigBytes: Uint8Array;
-  try { keyBytes = b64urlToBytes(key); sigBytes = b64urlToBytes(sigS); } catch { return false; }
+  try {
+    keyBytes = b64urlToBytes(key);
+    sigBytes = b64urlToBytes(sigS);
+  } catch {
+    return false;
+  }
   if (!eq(keyBytes, ownerKey)) return false;
   const ts = Number(tsS);
-  if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > SKEW_S) return false;
+  if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > SKEW_S) {
+    return false;
+  }
   if (seenNonces.has(nonce)) return false;
   const bodyHash = hex(sha256(new TextEncoder().encode(bodyText)));
   const canonical = `${method}\n${path}\n${bodyHash}\n${ts}\n${nonce}`;
   let ok = false;
-  try { ok = ed25519.verify(sigBytes, new TextEncoder().encode(canonical), ownerKey); } catch { ok = false; }
+  try {
+    ok = ed25519.verify(
+      sigBytes,
+      new TextEncoder().encode(canonical),
+      ownerKey,
+    );
+  } catch {
+    ok = false;
+  }
   if (ok) rememberNonce(nonce);
   return ok;
 }

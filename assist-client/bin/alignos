@@ -14,7 +14,14 @@ const store = require('../src/inbox-store');
 
 const argv = process.argv.slice(2);
 const flag = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined; };
+const hasFlag = (name) => argv.includes(name);
 const text = (parts = []) => parts.filter((p) => p.kind === 'text').map((p) => p.text).join('\n');
+function seedOpts() {
+  if (hasFlag('--all')) return { days: null, maxPairs: 1500 };
+  const days = Number(flag('--days') || 30);
+  if (!Number.isFinite(days) || days <= 0) throw new Error('--days must be a positive number');
+  return { days, maxPairs: 1500 };
+}
 
 // Accept a short id prefix (as shown by `inbox`) and resolve it to the full task id.
 async function resolveId(s) {
@@ -39,9 +46,9 @@ async function main() {
       if (token) {
         await require('../src/identity').claim(url, token);
         console.log('claimed ownership of', url);
-        process.stderr.write('seeding your assistant from your agent logs…\n');
+        process.stderr.write(`seeding your assistant from your agent logs (${hasFlag('--all') ? 'all history' : `${seedOpts().days} days`})…\n`);
         try {
-          const { pairs, stats } = require('../src/agent-logs').ingestCorpus({ days: null, maxPairs: 1500 });
+          const { pairs, stats } = require('../src/agent-logs').ingestCorpus(seedOpts());
           const r = await mc.uploadKnowledge(pairs);
           console.log(`seeded ${r.count} prompt/output pairs from ${stats.sessions} sessions`);
         } catch (e) { console.error('seed skipped:', e.message); }
@@ -51,7 +58,7 @@ async function main() {
       break;
     }
     case 'seed': {
-      const { pairs, stats } = require('../src/agent-logs').ingestCorpus({ days: null, maxPairs: 1500 });
+      const { pairs, stats } = require('../src/agent-logs').ingestCorpus(seedOpts());
       const r = await mc.uploadKnowledge(pairs);
       console.log(`seeded ${r.count} prompt/output pairs from ${stats.sessions} sessions`);
       break;
