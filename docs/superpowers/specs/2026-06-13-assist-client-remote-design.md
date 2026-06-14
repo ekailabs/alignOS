@@ -244,6 +244,7 @@ everything needs the human until the owner opts specific things in.
 |---|---|---|
 | Raw local agent logs (`~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`, `~/.opencode`, `~/.hermes`) | **Edge only** | Deny-by-default scope; `redact.js` masks secrets before anything leaves. |
 | Onboarding agent-log digest | Edge → **CVM** (redacted) | Optional after claim; compacted agent-log history from the approved roots, not raw logs or broad folder access. |
+| Onboarding knowledge corpus | **CVM** `/data/knowledge.json` | Redacted prompt/output pairs used only for owner voice/style grounding in Quick Mode drafts. |
 | Local context slice for a request | Edge → **CVM** (redacted) | Only the minimal redacted slice needed to draft; on explicit in-the-moment approval. |
 | Notes/docs in "what it knows" | Synced into **CVM** (redacted) | So the assistant can draft from them anytime, asleep or awake. |
 | Assistant identity + keys | **CVM** | TEE-derived. |

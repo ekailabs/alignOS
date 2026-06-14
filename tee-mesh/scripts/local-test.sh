@@ -44,6 +44,7 @@ start_node() { # id port manifest
     ALIGN_OWNER_HANDLE="$OWNER_HANDLE" ALIGN_OWNER_DISPLAY_NAME="$OWNER_DISPLAY_NAME" \
     ALIGN_MANIFEST="$3" ALIGN_GOSSIP_INTERVAL=2 ALIGN_EVENTLOG="$WORK/$1.events.jsonl" \
     ALIGN_TASKS="$WORK/$1.tasks.json" ALIGN_PEERS="$WORK/$1.peers.json" \
+    ALIGN_KNOWLEDGE="$WORK/$1.knowledge.json" \
     REGISTRY_RPC="$RPC" REGISTRY_CONTRACT="$ADDR" PRIVATE_KEY="$KEY" \
     "$DENO" run --allow-net --allow-env --allow-read --allow-write main.ts >"$WORK/$1.log" 2>&1 & PIDS+=($!)
 }

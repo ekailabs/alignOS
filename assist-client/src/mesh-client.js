@@ -34,8 +34,19 @@ const followup = (taskId, text) =>
 const decline = (taskId, note) =>
   rpc('tasks/cancel', { id: taskId, note }, { owner: true });
 
+// owner POST (non-RPC, signed) — e.g. uploading the knowledge corpus.
+async function ownerPost(pth, payload, { url } = {}) {
+  const base = (url || load().url || 'http://localhost:8080').replace(/\/$/, '');
+  const body = JSON.stringify(payload);
+  const headers = { 'content-type': 'application/json', ...identity.signHeaders('POST', pth, body) };
+  const res = await fetch(base + pth, { method: 'POST', headers, body });
+  if (res.status === 401) throw new Error('not authorized — claim this space first: alignos setup --url <gateway> --token <token>');
+  return res.json();
+}
+const uploadKnowledge = (pairs) => ownerPost('/owner/knowledge', { pairs });
+
 // public surface (peer simulation / interop)
 const peerAsk = (text, display, url) =>
   rpc('message/send', { message: { role: 'user', parts: [{ kind: 'text', text }], messageId: rid() }, from: { display } }, { url });
 
-module.exports = { rpc, rid, inbox, handled, getTask, approve, followup, decline, peerAsk };
+module.exports = { rpc, rid, inbox, handled, getTask, approve, followup, decline, uploadKnowledge, peerAsk };

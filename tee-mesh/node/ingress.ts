@@ -7,6 +7,7 @@ import type { Identity } from "./identity.ts";
 import { appendEvent } from "./eventlog.ts";
 import { handleA2A } from "./a2a.ts";
 import { claim, verifyOwner } from "./owner.ts";
+import { setCorpus } from "./knowledge.ts";
 import type { Policy, TaskStore } from "./inbox.ts";
 import { route } from "./router.ts";
 import { DASHBOARD_HTML } from "./dashboard.ts";
@@ -114,6 +115,14 @@ export function makeHandler(ctx: IngressCtx) {
         return new Response("unauthorized", { status: 401 });
       }
       return handleA2A(a2a, bodyText, true);
+    }
+    if (p === "/owner/knowledge" && req.method === "POST") {
+      const bodyText = await req.text();
+      if (!verifyOwner(req.method, p, bodyText, req.headers)) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      const body = JSON.parse(bodyText) as { pairs?: unknown };
+      return Response.json(setCorpus(body.pairs));
     }
 
     const m = p.match(/^\/agents\/([^/]+)(\/.*)?$/);

@@ -29,6 +29,7 @@ const MOCK = (() => {
     ],
     grantFolders: async () => ({ ok: true }),
     skipOnboarding: async () => ({ ok: true }),
+    seed: async () => ({ uploaded: 60 }),
     pickFolder: async () => '/Users/you/Documents/example',
     inbox: async () => tasks.filter((t) => ['input-required', 'auth-required'].includes(t.status.state)),
     handled: async () => tasks.filter((t) => ['completed', 'canceled', 'rejected'].includes(t.status.state)),
@@ -54,7 +55,7 @@ const ago = (when) => {
   return Math.floor(s / 86400) + 'd';
 };
 
-const SECTIONS = ['loading', 'connect', 'folders', 'inbox', 'allclear', 'review', 'handled', 'prefs', 'error'];
+const SECTIONS = ['loading', 'connect', 'seeding', 'folders', 'inbox', 'allclear', 'review', 'handled', 'prefs', 'error'];
 const OUTCOME = { completed: 'Sent', canceled: 'Declined', rejected: 'Declined' };
 function setView(v) {
   for (const s of SECTIONS) $(s).hidden = s !== v;
@@ -94,6 +95,13 @@ async function openFolders() {
   _moreFolders = list.slice(10);
   $('folders-more').hidden = _moreFolders.length === 0;
   $('folders-more').textContent = `＋ ${_moreFolders.length} more folders`;
+}
+
+// Onboarding step 3: seed the private space with the redacted prompt/output corpus, then enter.
+async function seedAndEnter() {
+  setView('seeding');
+  try { await api.seed(); } catch (e) { /* non-fatal — proceed to the inbox */ }
+  await loadInbox();
 }
 
 // Deep-link to a specific request, e.g. from a notification: index.html#open=<taskId>
@@ -176,7 +184,7 @@ function wire() {
     const url = $('connect-url').value.trim();
     const token = $('connect-token').value.trim();
     if (!url) { $('connect-err').textContent = 'Enter your space address.'; $('connect-err').hidden = false; return; }
-    try { await api.setup({ url, token }); $('connect-err').hidden = true; loadInbox(); }
+    try { await api.setup({ url, token }); $('connect-err').hidden = true; seedAndEnter(); }
     catch (e) { $('connect-err').textContent = e.message; $('connect-err').hidden = false; }
   });
   $('open-inbox').addEventListener('click', loadInbox);

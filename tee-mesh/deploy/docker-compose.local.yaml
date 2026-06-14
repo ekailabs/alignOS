@@ -41,6 +41,7 @@ services:
       ALIGN_TASKS: /data/tasks.json
       ALIGN_EVENTLOG: /data/events.jsonl
       ALIGN_PEERS: /data/peers.json
+      ALIGN_KNOWLEDGE: /data/knowledge.json
       ALIGN_GOSSIP_INTERVAL: "2"
       REGISTRY_RPC: http://anvil:8545
       REGISTRY_CONTRACT: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
@@ -61,6 +62,7 @@ services:
       ALIGN_TASKS: /data/tasks.json
       ALIGN_EVENTLOG: /data/events.jsonl
       ALIGN_PEERS: /data/peers.json
+      ALIGN_KNOWLEDGE: /data/knowledge.json
       ALIGN_GOSSIP_INTERVAL: "2"
       REGISTRY_RPC: http://anvil:8545
       REGISTRY_CONTRACT: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
@@ -81,6 +83,7 @@ services:
       ALIGN_TASKS: /data/tasks.json
       ALIGN_EVENTLOG: /data/events.jsonl
       ALIGN_PEERS: /data/peers.json
+      ALIGN_KNOWLEDGE: /data/knowledge.json
       ALIGN_GOSSIP_INTERVAL: "2"
       REGISTRY_RPC: http://anvil:8545
       REGISTRY_CONTRACT: "0x5FbDB2315678afecb367f032d93F642f64180aa3"

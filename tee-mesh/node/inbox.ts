@@ -81,9 +81,12 @@ export function textMessage(role: "user" | "agent", text: string, taskId?: strin
   return { role, parts: [{ kind: "text", text }], messageId: crypto.randomUUID(), taskId, contextId };
 }
 
-// ── policy: auto-handle vs needs-human ───────────────────────────────────────
-// v1 default: everything needs the human. Connections + Auto-handle (phase 8) refine this.
+// ── policy: quick mode (auto) vs needs-human ─────────────────────────────────
+// Quick mode is the default: the node drafts a reply in the owner's voice (knowledge corpus)
+// and auto-sends it — the owner does NOT review each one; it lands in "Handled" for audit.
+// The human gate (input-required → inbox) is for Deep Mode / escalations, decided elsewhere.
+// Connections + Auto-handle prefs will refine this later.
 export type Policy = (msg: Message, from: Task["from"]) => "auto" | "input-required";
-export const defaultPolicy: Policy = () => "input-required";
+export const defaultPolicy: Policy = () => "auto";
 
 export { appendEvent };

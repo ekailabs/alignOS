@@ -46,6 +46,8 @@ stores:
 - `ALIGN_EVENTLOG=/data/events.jsonl` — append-only operational/audit events.
 - `ALIGN_PEERS=/data/peers.json` — last known peer discovery directory, used to warm
   `/peers` and `/services` after restarts while registry/gossip catches up.
+- `ALIGN_KNOWLEDGE=/data/knowledge.json` — redacted onboarding knowledge corpus used for
+  owner voice/style grounding.
 
 Raw local agent logs are not mounted into the TEE. During onboarding or Deep Mode, the edge
 sends only redacted/compacted slices to the TEE.
@@ -117,6 +119,6 @@ Local dry-run (no TEE/Phala, fast): `bash scripts/compose-test.sh` (anvil + 3 co
 - [ ] images Public on ghcr, referenced by a fresh `:vN` tag
 - [ ] `.env` lines newline-terminated; no `#.env#` committed
 - [ ] config via env (`ALIGN_MANIFEST_JSON`, `SKILL`), not bind-mounts
-- [ ] node data volume mounted at `/data` (`tasks.json`, `events.jsonl`, `peers.json`)
+- [ ] node data volume mounted at `/data` (`tasks.json`, `events.jsonl`, `peers.json`, `knowledge.json`)
 - [ ] deploy → get app_id → set `ALIGN_SELF_URL` → upgrade `--cvm-id` → `cvms restart`
 - [ ] `--node-id 12` (prod7), default `--kms phala`

@@ -34,6 +34,11 @@ ipcMain.handle('setup', async (_e, { url, token }) => {
   if (token) await require('./identity').claim(clean, token);
   return { ok: true };
 });
+ipcMain.handle('seed', async () => {
+  const { pairs, stats } = agentLogs.ingestCorpus({ days: null, maxPairs: 1500 });
+  const r = await mc.uploadKnowledge(pairs);
+  return { uploaded: r.count, sessions: stats.sessions };
+});
 ipcMain.handle('suggest-folders', async () => agentLogs.suggestFolders({ days: 30 }));
 ipcMain.handle('pick-folder', async () => {
   const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'], message: 'Folder your assistant may read' });

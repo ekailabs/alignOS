@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('alignos', {
   bootstrap: () => ipcRenderer.invoke('bootstrap'),
   setup: (payload) => ipcRenderer.invoke('setup', payload),
+  seed: () => ipcRenderer.invoke('seed'),
   suggestFolders: () => ipcRenderer.invoke('suggest-folders'),
   pickFolder: () => ipcRenderer.invoke('pick-folder'),
   grantFolders: (folders, opts) => ipcRenderer.invoke('grant-folders', { folders, ...opts }),

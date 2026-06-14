@@ -15,6 +15,7 @@ services:
       ALIGN_TASKS: /data/tasks.json
       ALIGN_EVENTLOG: /data/events.jsonl
       ALIGN_PEERS: /data/peers.json
+      ALIGN_KNOWLEDGE: /data/knowledge.json
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - alignos-data:/data
