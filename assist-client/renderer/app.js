@@ -285,10 +285,8 @@ function wire() {
   $('welcome-start').addEventListener('click', () => { setView('connect'); refreshBackendPreview(); });
   $('connect-go').addEventListener('click', async () => {
     const url = normalizeBackendUrl($('connect-url').value);
-    const token = $('connect-token').value.trim();
     if (!url) { $('connect-err').textContent = 'Enter a valid space address.'; $('connect-err').hidden = false; return; }
-    if (!token) { $('connect-err').textContent = 'Enter the setup code from the operator.'; $('connect-err').hidden = false; return; }
-    try { await api.setup({ url, token }); $('connect-err').hidden = true; setView('consent'); }
+    try { await api.setup({ url }); $('connect-err').hidden = true; setView('consent'); }
     catch (e) { $('connect-err').textContent = e.message; $('connect-err').hidden = false; }
   });
   $('consent-approve').addEventListener('click', seedAndEnter);
