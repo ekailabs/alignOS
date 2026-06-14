@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# E2E: send sample questions to a node's /route and assert each is routed to the right skill
-# (and the answer is correct). Works against any node URL — local or a live prod7 gateway.
+# E2E: send sample questions to a node's /route and assert each is routed to the right persona skill.
+# Works against any node URL — local or a live prod7 gateway.
 #   bash scripts/e2e-routing.sh [BASE_URL]
 set -uo pipefail
 BASE="${1:-http://localhost:8081}"
@@ -23,11 +23,11 @@ check() { # question  expected_agent  expected_substring
 }
 
 echo "== e2e routing against $BASE =="
-check "what is 12 * 8?"        calc    "96"
-check "100 divided by 4"       calc    "25"
-check "what's the weather in Tokyo?" weather "rain"
-check "forecast for London"    weather "overcast"
-check "define attestation"     define  "proof"
-check "what does mesh mean"    define  "peers"
+check "how should we find PMF?"                         albi     "PMF"
+check "what GTM motion should we use?"                  albi     "GTM"
+check "how does remote attestation work in a TEE?"      andrew   "Confidential Compute"
+check "what privacy guarantees do enclaves provide?"    andrew   "Privacy"
+check "how should we design the agent routing layer?"   shashank "Agent Infra"
+check "what system design scales this architecture?"    shashank "System Design"
 echo "== $pass passed, $fail failed =="
 [ "$fail" = "0" ] && echo "E2E PASS" || { echo "E2E FAIL"; exit 1; }

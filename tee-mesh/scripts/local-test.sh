@@ -29,8 +29,8 @@ cd "$ROOT/contracts"
 ADDR=$("$FORGE" create src/AlignRegistry.sol:AlignRegistry --rpc-url "$RPC" --private-key "$KEY" --broadcast --json | "$DENO" eval 'const d=JSON.parse(await new Response(Deno.stdin.readable).text());console.log(d.deployedTo)')
 echo "registry: $ADDR"
 
-start_agent() { # name port
-  cd "$ROOT/agents/$1"; PORT="$2" "$DENO" run --allow-net --allow-read --allow-env server.ts >/dev/null 2>&1 & PIDS+=($!)
+start_agent() { # skill port
+  cd "$ROOT/agents/skill"; SKILL="$1" PORT="$2" "$DENO" run --allow-net --allow-env server.ts >/dev/null 2>&1 & PIDS+=($!)
 }
 start_node() { # id port manifest
   cd "$ROOT/node"
@@ -49,14 +49,14 @@ start_node() { # id port manifest
     "$DENO" run --allow-net --allow-env --allow-read --allow-write main.ts >"$WORK/$1.log" 2>&1 & PIDS+=($!)
 }
 
-echo "== agents (different sets per node) =="
-start_agent echo 9101   # albi: echo only
-start_agent ping 9201   # andrew: ping only
-start_agent echo 9301; start_agent ping 9302   # shashank: both
+echo "== agents (different persona/domain skill per node) =="
+start_agent albi 9101
+start_agent andrew 9201
+start_agent shashank 9301
 sleep 1
-echo '[{"name":"echo","url":"http://localhost:9101"}]' > "$WORK/a.json"
-echo '[{"name":"ping","url":"http://localhost:9201"}]' > "$WORK/b.json"
-echo '[{"name":"echo","url":"http://localhost:9301"},{"name":"ping","url":"http://localhost:9302"}]' > "$WORK/c.json"
+echo '[{"name":"albi","url":"http://localhost:9101"}]' > "$WORK/a.json"
+echo '[{"name":"andrew","url":"http://localhost:9201"}]' > "$WORK/b.json"
+echo '[{"name":"shashank","url":"http://localhost:9301"}]' > "$WORK/c.json"
 
 echo "== nodes =="
 start_node albi 8081 "$WORK/a.json"
@@ -70,10 +70,10 @@ curl -s http://localhost:8081/peers | "$DENO" eval 'const ps=JSON.parse(await ne
 echo "== /services as seen by Albi =="
 curl -s http://localhost:8081/services | "$DENO" eval 'const d=JSON.parse(await new Response(Deno.stdin.readable).text()); for(const s of d.services) console.log(`  ${s.owner.display_name} (${s.owner.handle}) -> ${s.endpoints.ask} quick=${s.endpoints.quick_mode} deep=${s.endpoints.deep_mode}`)'
 
-echo "== cross-node proxy: ask Albi for Shashank's echo agent URL, then call it =="
-URL=$(curl -s http://localhost:8081/peers | "$DENO" eval 'const ps=JSON.parse(await new Response(Deno.stdin.readable).text()); const c=ps.find(p=>p.app_id==="shashank"); console.log(c.agents.find(a=>a.name==="echo").url)')
+echo "== cross-node proxy: ask Albi for Shashank's agent URL, then call it =="
+URL=$(curl -s http://localhost:8081/peers | "$DENO" eval 'const ps=JSON.parse(await new Response(Deno.stdin.readable).text()); const c=ps.find(p=>p.app_id==="shashank"); console.log(c.agents.find(a=>a.name==="shashank").url)')
 echo "  resolved: $URL"
-curl -s "$URL?q=hello-from-test" ; echo
+curl -s "$URL?q=how should we design the agent routing layer?" ; echo
 
 echo "== on-chain getMembers() =="
 "$CAST" call "$ADDR" "getMembers()(bytes32[])" --rpc-url "$RPC"

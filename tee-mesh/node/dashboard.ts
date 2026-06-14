@@ -45,12 +45,12 @@ export const DASHBOARD_HTML = `<!doctype html>
 <main>
   <div class="ask">
     <h2>Ask the mesh</h2>
-    <div class="askrow"><input id="q" placeholder="e.g. what is 12 * 8?" autofocus>
+    <div class="askrow"><input id="q" placeholder="e.g. how should we find PMF?" autofocus>
       <button onclick="ask()">Route</button></div>
     <div class="samples">try:
-      <span onclick="setq('what is 12 * 8?')">what is 12 * 8?</span>
-      <span onclick="setq('weather in Tokyo')">weather in Tokyo</span>
-      <span onclick="setq('define attestation')">define attestation</span></div>
+      <span onclick="setq('how should we find PMF?')">PMF / GTM</span>
+      <span onclick="setq('how does remote attestation work in a TEE?')">confidential compute</span>
+      <span onclick="setq('how should we design the agent routing layer?')">agent infra</span></div>
     <div class="result" id="res"></div>
   </div>
   <div class="grid" id="grid"></div>

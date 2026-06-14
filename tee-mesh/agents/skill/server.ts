@@ -1,78 +1,125 @@
-// One image, many skills — pick which via the SKILL env. Each skill serves an A2A agent
-// card (with tag keywords the mesh router matches against) and answers POST / {question}.
-const SKILL = Deno.env.get("SKILL") ?? "calc";
+// One image, many persona skills — pick which via the SKILL env. Each skill serves an A2A
+// agent card (with tag keywords the mesh router matches against) and answers POST / {question}.
+const SKILL = Deno.env.get("SKILL") ?? "albi";
 const PORT = Number(Deno.env.get("PORT") ?? "8080");
 
 type Skill = { card: Record<string, unknown>; answer: (q: string) => unknown };
 
+function responseFor(owner: string, domains: string[], question: string) {
+  const focus = domains.join(", ");
+  return {
+    owner,
+    domains,
+    question,
+    answer:
+      question.trim().length > 0
+        ? `${owner} is the right person for ${focus}. They can help think through: ${question}`
+        : `Ask ${owner} about ${focus}.`,
+  };
+}
+
 const SKILLS: Record<string, Skill> = {
-  calc: {
+  albi: {
     card: {
-      name: "calc", description: "Evaluates simple arithmetic.",
-      version: "1.0.0", protocolVersion: "0.2.0", capabilities: { streaming: false },
+      name: "albi",
+      description: "Ask Albi about GTM, PMF, and product development.",
+      version: "1.0.0",
+      protocolVersion: "0.2.0",
+      capabilities: { streaming: false },
       skills: [{
-        id: "calculate", name: "Calculator",
-        description: "Add, subtract, multiply or divide two numbers",
-        tags: ["math", "calculate", "arithmetic", "compute", "sum", "add", "plus", "minus",
-               "subtract", "multiply", "times", "divide", "divided", "product"],
-        examples: ["what is 12 * 8?", "add 5 and 7", "100 divided by 4"],
+        id: "gtm-pmf-product",
+        name: "GTM, PMF, Product Development",
+        description: "Go-to-market, product-market fit, startup growth, and product development advice.",
+        tags: [
+          "albi",
+          "gtm",
+          "go-to-market",
+          "pmf",
+          "product-market-fit",
+          "product",
+          "product-development",
+          "startup",
+          "growth",
+          "launch",
+          "positioning",
+          "customers",
+        ],
+        examples: [
+          "ask Albi how to find PMF",
+          "what is the right GTM motion for this product?",
+          "how should we prioritize product development?",
+        ],
       }],
     },
-    answer: (q) => {
-      const w = q.toLowerCase()
-        .replace(/\b(plus|add)\b/g, "+").replace(/\b(minus|subtract)\b/g, "-")
-        .replace(/\b(times|multiplied by|multiply)\b/g, "*").replace(/\b(divided by|divide|over)\b/g, "/");
-      const m = w.match(/(-?\d+(?:\.\d+)?)\s*([-+*/x])\s*(-?\d+(?:\.\d+)?)/);
-      if (!m) return { error: "could not parse two numbers and an operator", input: q };
-      const a = parseFloat(m[1]), b = parseFloat(m[3]);
-      const r = m[2] === "+" ? a + b : m[2] === "-" ? a - b : (m[2] === "*" || m[2] === "x") ? a * b : a / b;
-      return { expression: `${a} ${m[2]} ${b}`, result: r };
-    },
+    answer: (q) => responseFor("Albi", ["GTM", "PMF", "Product Development"], q),
   },
-  weather: {
+  andrew: {
     card: {
-      name: "weather", description: "Reports (canned) current weather for a few cities.",
-      version: "1.0.0", protocolVersion: "0.2.0", capabilities: { streaming: false },
+      name: "andrew",
+      description: "Ask Andrew about confidential compute, privacy, and security.",
+      version: "1.0.0",
+      protocolVersion: "0.2.0",
+      capabilities: { streaming: false },
       skills: [{
-        id: "forecast", name: "Weather",
-        description: "Current conditions for a known city",
-        tags: ["weather", "forecast", "temperature", "rain", "sunny", "climate", "conditions", "hot", "cold"],
-        examples: ["what's the weather in Tokyo?", "forecast for London"],
+        id: "confidential-compute-privacy-security",
+        name: "Confidential Compute, Privacy, Security",
+        description: "TEEs, enclaves, dstack/Phala, attestation, privacy, and security architecture.",
+        tags: [
+          "andrew",
+          "confidential-compute",
+          "confidential-computing",
+          "tee",
+          "enclave",
+          "privacy",
+          "security",
+          "attestation",
+          "dstack",
+          "phala",
+          "kms",
+          "trusted-execution-environment",
+        ],
+        examples: [
+          "ask Andrew how remote attestation works",
+          "what privacy guarantees do TEEs provide?",
+          "how should we secure this confidential compute deployment?",
+        ],
       }],
     },
-    answer: (q) => {
-      const data: Record<string, string> = {
-        tokyo: "18°C, light rain", london: "11°C, overcast", paris: "15°C, partly cloudy",
-        "new york": "9°C, windy", "san francisco": "16°C, foggy", berlin: "12°C, clear",
-      };
-      const ql = q.toLowerCase();
-      const city = Object.keys(data).find((c) => ql.includes(c));
-      return city ? { city, conditions: data[city] } : { error: "no weather data for that city", known: Object.keys(data) };
-    },
+    answer: (q) => responseFor("Andrew", ["Confidential Compute", "Privacy", "Security"], q),
   },
-  define: {
+  shashank: {
     card: {
-      name: "define", description: "Defines a few TEE/mesh terms.",
-      version: "1.0.0", protocolVersion: "0.2.0", capabilities: { streaming: false },
+      name: "shashank",
+      description: "Ask Shashank about system design and agent infrastructure.",
+      version: "1.0.0",
+      protocolVersion: "0.2.0",
+      capabilities: { streaming: false },
       skills: [{
-        id: "define", name: "Dictionary",
-        description: "Define a term",
-        tags: ["define", "definition", "meaning", "dictionary", "explain", "glossary", "term"],
-        examples: ["define attestation", "what does TEE mean"],
+        id: "system-design-agent-infra",
+        name: "System Design, Agent Infra",
+        description: "Distributed systems, agent infrastructure, routing, orchestration, and architecture.",
+        tags: [
+          "shashank",
+          "system-design",
+          "systems-design",
+          "agent-infra",
+          "agent-infrastructure",
+          "agents",
+          "distributed-systems",
+          "architecture",
+          "infra",
+          "routing",
+          "orchestration",
+          "scalability",
+        ],
+        examples: [
+          "ask Shashank how to design the agent routing layer",
+          "what infra do we need for multi-agent orchestration?",
+          "how should this system scale?",
+        ],
       }],
     },
-    answer: (q) => {
-      const dict: Record<string, string> = {
-        tee: "Trusted Execution Environment — hardware-isolated compute with remote attestation.",
-        attestation: "A signed proof of what code is running inside a TEE.",
-        mesh: "A network where each node connects to peers directly, with no central hub.",
-        gossip: "Epidemic state propagation: nodes periodically exchange views until consistent.",
-        entropy: "A measure of disorder or uncertainty in a system.",
-      };
-      const ql = q.toLowerCase();
-      const term = Object.keys(dict).find((t) => new RegExp(`\\b${t}\\b`).test(ql));
-      return term ? { term, definition: dict[term] } : { error: "term not in glossary", known: Object.keys(dict) };
-    },
+    answer: (q) => responseFor("Shashank", ["System Design", "Agent Infra"], q),
   },
 };
 

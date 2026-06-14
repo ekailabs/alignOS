@@ -30,6 +30,6 @@ echo "== node count =="
 echo "  Albi sees ${N:-?} nodes (expect 3)"
 test "${N:-0}" = "3" || { echo "FAIL: mesh did not converge"; dc logs --tail=40; exit 1; }
 
-# Routing fans across the mesh: calc@Albi, weather@Andrew, define@Shashank — all asked at Albi.
+# Routing fans across the mesh: albi/GTM, andrew/confidential compute, shashank/agent infra — all asked at Albi.
 bash "$ROOT/scripts/e2e-routing.sh" "http://localhost:$PORT_A" || { echo "FAIL: e2e routing"; dc logs --tail=40; exit 1; }
 echo "ALL PASS"

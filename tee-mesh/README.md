@@ -43,14 +43,15 @@ exchanging A2A-style **agent cards** plus how to connect to them. Trusted-setup 
 
 ## Live deployment (prod7, Phala KMS)
 A 3-node mesh is running on `dstack-pha-prod7`, registry on Ethereum Sepolia
-`0xf31768d4E42d5e80aE95415309D7908ae730Fb41`. Each node runs a different skill:
-- Albi (calc): `https://85b887ee69cfcd49061d5bbdc5ffa94da11f2939-8080.dstack-pha-prod7.phala.network`
-- Andrew (weather): `https://29736dcf7742550956c28a1174c1e0724b6d769c-8080.dstack-pha-prod7.phala.network`
-- Shashank (define): `https://29b4c80372a66a7086d9c953b4c9902c7071b701-8080.dstack-pha-prod7.phala.network`
+`0xf31768d4E42d5e80aE95415309D7908ae730Fb41`. Each node runs a different persona/domain skill:
+- Albi (GTM, PMF, Product Development): `https://85b887ee69cfcd49061d5bbdc5ffa94da11f2939-8080.dstack-pha-prod7.phala.network`
+- Andrew (Confidential Compute, Privacy, Security): `https://29736dcf7742550956c28a1174c1e0724b6d769c-8080.dstack-pha-prod7.phala.network`
+- Shashank (System Design, Agent Infra): `https://29b4c80372a66a7086d9c953b4c9902c7071b701-8080.dstack-pha-prod7.phala.network`
 
 **Demo dashboard**: open `<any node>/dashboard` — shows every node, its isolated agents/skills,
 liveness + `mode=tee`, and a live "ask the mesh" box. Routing fans across CVMs: ask
-`what is 12 * 8?` / `weather in Tokyo` / `define attestation` and watch each land on the right node.
+`how should we find PMF?` / `how does remote attestation work in a TEE?` /
+`how should we design the agent routing layer?` and watch each land on the right node.
 `curl <any>/peers` shows all three raw nodes; `curl <any>/services` shows the owner-bound
 assistant services. For the demo instantiation, the three services are Albi, Andrew, and
 Shashank. Each service advertises `/ask-albi`, `/ask-andrew`, or `/ask-shashank` with a
@@ -71,7 +72,7 @@ all three converge and a cross-node agent call resolves.
   domain). This is a *separate* chain from the registry and does not need to match it.
 
 ## Deploy to 3 Phala CVMs (prod7)
-Images are pulled from ghcr (`ghcr.io/amiller/alignos-{node,echo,ping}`); the manifest is
+Images are pulled from ghcr (`ghcr.io/amiller/alignos-{node,skill}`); the manifest is
 passed inline via `ALIGN_MANIFEST_JSON` (no host bind-mounts on the CVM).
 1. `PRIVATE_KEY=0x… bash scripts/deploy-registry.sh` → record `REGISTRY_CONTRACT`.
 2. Per CVM: an env file with `REGISTRY_*`/`PRIVATE_KEY` + a distinct `ALIGN_MANIFEST_JSON`.
