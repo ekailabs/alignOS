@@ -18,7 +18,7 @@
         <span class="pill" id="priv">Private</span>
         <button class="link" id="open-inbox">Inbox</button>
         <button class="link" id="open-cards">Agent Cards</button>
-        <button class="link" id="open-handled">Handled</button>
+        <button class="link" id="open-handled">History</button>
         <button class="link" id="open-prefs">Preferences</button>
       </span>
     </header>
@@ -147,7 +147,7 @@
       <div class="moon">☾</div>
       <h2>You're all caught up</h2>
       <p class="sub">Nothing needs your call right now. Your assistant will let you know.</p>
-      <button class="link" id="allclear-handled" style="margin-top:16px">See what's been handled →</button>
+      <button class="link" id="allclear-handled" style="margin-top:16px">See your history →</button>
     </section>
 
     <!-- REVIEW -->
@@ -156,8 +156,12 @@
       <div class="rv-from"><b id="rv-who">—</b> <span class="chip" id="rv-chip" hidden>Connected</span>
         <span class="rv-age" id="rv-age"></span></div>
       <div class="quote" id="rv-ask">—</div>
-      <div class="lbl">Your assistant drafted a reply</div>
+      <div class="lbl" id="rv-lbl">Drafted reply</div>
       <div class="draft" id="rv-draft">—</div>
+      <textarea class="draft-edit" id="rv-draft-edit" rows="7" hidden></textarea>
+      <div class="rv-draft-actions" id="rv-draft-actions" hidden>
+        <button class="link" id="rv-redraft">↻ Redraft locally</button>
+      </div>
       <div class="prov" id="rv-prov"></div>
 
       <div class="compose" id="rv-compose" hidden>
@@ -177,10 +181,10 @@
     <!-- HANDLED (history) -->
     <section class="card inbox" id="handled" hidden>
       <button class="link back" id="handled-back">← Inbox</button>
-      <h1 class="ihead">Handled</h1>
-      <p class="isub">What your assistant has sent or declined — with you in the loop.</p>
+      <h1 class="ihead">History</h1>
+      <p class="isub">What your assistant has sent or declined on your behalf — with you in the loop.</p>
       <ul class="list" id="handled-list"></ul>
-      <p class="sub" id="handled-empty" hidden>Nothing handled yet.</p>
+      <p class="sub" id="handled-empty" hidden>No history yet.</p>
     </section>
 
     <!-- PREFERENCES (Connections + Auto-handle wired in a later slice) -->

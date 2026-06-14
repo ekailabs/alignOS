@@ -167,6 +167,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14p
 .quote{padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--accent-soft);font-family:var(--serif);font-size:18px;line-height:1.4;color:var(--ink);margin-bottom:18px;white-space:pre-wrap}
 .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
 .draft{padding:16px;border:1px solid var(--line);border-radius:14px;background:#fff;font-size:14px;line-height:1.6;color:#2C281F;white-space:pre-wrap}
+.draft-edit{width:100%;box-sizing:border-box;padding:16px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;font-size:14px;line-height:1.6;color:#2C281F;resize:vertical}
+.draft-edit:focus{outline:none;border-color:var(--green)}
+.rv-draft-actions{display:flex;justify-content:flex-end;margin-top:8px}
+.rv-draft-actions .link{font-size:12px}
 .prov{display:flex;gap:8px;margin-top:12px;font-size:12px;color:var(--muted);line-height:1.45}
 .prov::before{content:"◆";color:var(--green)}
 .consequence{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}

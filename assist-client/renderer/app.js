@@ -413,6 +413,46 @@ async function loadAgentCards() {
   } catch (e) { fail(e.message); }
 }
 
+// Show the draft for a non-terminal task: prefer the local overlay draft (editable when ready);
+// fall back to the remote artifact when there's no local draft.
+function renderDraft(t, d, who) {
+  const editEl = $('rv-draft-edit'), staticEl = $('rv-draft');
+  const remote = text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts);
+  $('rv-draft-actions').hidden = false;
+  $('rv-consequence').innerHTML = `Approving <b>sends this reply to ${esc(who)}</b>.`;
+  $('rv-approve').disabled = false;
+
+  if (d && d.status === 'drafting') {
+    editEl.hidden = true; staticEl.hidden = false;
+    $('rv-lbl').textContent = 'Drafting locally…';
+    staticEl.textContent = 'Your local agent is writing a reply in your workspace…';
+    $('rv-prov').textContent = '';
+    $('rv-approve').disabled = true;
+    return;
+  }
+  if (d && d.status === 'ready') {
+    staticEl.hidden = true; editEl.hidden = false;
+    editEl.value = d.text;
+    const ws = d.workspace ? d.workspace.replace(/^\/Users\/[^/]+/, '~') : 'your workspace';
+    $('rv-lbl').textContent = 'Drafted reply (editable)';
+    $('rv-prov').textContent = `Drafted locally by ${d.cli || 'your agent'} in ${ws}. Raw local files weren’t sent.`;
+    return;
+  }
+  if (d && d.status === 'error') {
+    editEl.hidden = true; staticEl.hidden = false;
+    $('rv-lbl').textContent = 'Draft';
+    staticEl.textContent = remote || '(local draft failed — Redraft to try again)';
+    $('rv-prov').textContent = `Local draft failed: ${d.error || 'unknown error'}`;
+    $('rv-approve').disabled = !remote;
+    return;
+  }
+  // no local draft → existing remote-artifact behavior
+  editEl.hidden = true; staticEl.hidden = false;
+  $('rv-lbl').textContent = 'Your assistant drafted a reply';
+  staticEl.textContent = remote || '(no draft yet)';
+  $('rv-prov').textContent = 'Drafted in your private space. Raw local files weren’t sent.';
+}
+
 async function openReview(id) {
   try {
     const t = await api.show(id); current = t;
@@ -426,14 +466,15 @@ async function openReview(id) {
     const terminal = ['completed', 'canceled', 'rejected'].includes(t.status.state);
     $('rv-actions').hidden = terminal;
     if (terminal) {
+      $('rv-draft-edit').hidden = true; $('rv-draft').hidden = false; $('rv-draft-actions').hidden = true;
       const sent = t.status.state === 'completed';
+      $('rv-lbl').textContent = 'Drafted reply';
       $('rv-draft').textContent = sent ? (text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts) || '(no reply)') : '(declined — nothing was sent)';
       $('rv-prov').textContent = '';
       $('rv-consequence').innerHTML = `<b>${sent ? 'Sent ✓' : 'Declined'}</b> · ${esc(ago(t.status.timestamp))}`;
     } else {
-      $('rv-draft').textContent = text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts) || '(no draft yet)';
-      $('rv-prov').textContent = 'Drafted in your private space. Raw local files weren’t sent.';
-      $('rv-consequence').innerHTML = `Approving <b>sends this reply to ${esc(who)}</b>.`;
+      const d = api.draftGet ? await api.draftGet(id).catch(() => null) : null;
+      renderDraft(t, d, who);
     }
     setView('review');
   } catch (e) { fail(e.message); }
@@ -480,7 +521,24 @@ function wire() {
     for (const f of _moreFolders) $('folders-list').appendChild(folderRow(f, false));
     _moreFolders = []; $('folders-more').hidden = true;
   });
-  $('rv-approve').addEventListener('click', async () => { try { await api.approve(current.id); toast('Approved — sent.'); loadInbox(); } catch (e) { fail(e.message); } });
+  $('rv-approve').addEventListener('click', async () => {
+    const editEl = $('rv-draft-edit');
+    const replyText = editEl.hidden ? null : editEl.value.trim();
+    try { await api.approve(current.id, replyText); toast('Approved — sent.'); loadInbox(); }
+    catch (e) { fail(e.message); }
+  });
+  $('rv-redraft').addEventListener('click', async () => {
+    $('rv-draft-edit').hidden = true; $('rv-draft').hidden = false;
+    $('rv-lbl').textContent = 'Drafting locally…';
+    $('rv-draft').textContent = 'Your local agent is writing a reply in your workspace…';
+    $('rv-approve').disabled = true;
+    try { await api.redraft(current.id); } catch (e) { /* surfaced on reopen */ }
+    openReview(current.id);
+  });
+  if (api.onDraftUpdated) api.onDraftUpdated(({ taskId }) => {
+    if (_view === 'review' && current && current.id === taskId) openReview(taskId);
+    else if (_view === 'inbox') loadInbox();
+  });
   $('rv-decline').addEventListener('click', async () => { try { await api.decline(current.id); toast('Declined.'); loadInbox(); } catch (e) { fail(e.message); } });
   $('rv-followup').addEventListener('click', () => {
     const c = $('rv-compose'); c.hidden = !c.hidden;
