@@ -41,6 +41,23 @@
         and only sent when you approve.</p>
     </section>
 
+    <!-- FOLDERS (onboarding) -->
+    <section class="card folders" id="folders" hidden>
+      <h1 class="ihead">Folders your assistant can read</h1>
+      <p class="isub">We looked at which folders you work in — using only your local Claude &amp; Codex
+        history, on this computer. That scan never left your machine. Pick what your assistant may read;
+        files stay on your device, secrets are masked, and nothing is shared without your okay.</p>
+      <ul class="list" id="folders-list"></ul>
+      <button class="link" id="folders-more" hidden></button>
+      <button class="link" id="folders-add">＋ Add a folder…</button>
+      <label class="opt"><input type="checkbox" id="opt-history" checked> Use my Claude &amp; Codex history for these folders</label>
+      <label class="opt opt-adv"><input type="checkbox" id="opt-alllogs"> …also for all other projects <span class="adv">advanced</span></label>
+      <div class="folders-actions">
+        <button class="link" id="folders-skip">Skip for now</button>
+        <button class="btn primary" id="folders-continue">Continue →</button>
+      </div>
+    </section>
+
     <!-- INBOX -->
     <section class="card inbox" id="inbox" hidden>
       <h1 class="ihead">Inbox</h1>

@@ -18,8 +18,18 @@ const MOCK = (() => {
       history: [{ role: 'user', parts: [{ kind: 'text', text: 'Can you forward the investor deck?' }] }], artifacts: [] },
   ];
   return {
-    bootstrap: async () => ({ connected: true, url: 'demo' }),
+    bootstrap: async () => ({ connected: true, onboarded: true, url: 'demo' }),
     setup: async () => ({ ok: true }),
+    suggestFolders: async () => [
+      { path: '/Users/you/Documents/win26/ekai/alignOS', sessions: 11, lastActive: Date.now() - 3600000, sources: 'claude+codex' },
+      { path: '/Users/you/Documents/win26/ekai/ekai-gateway', sessions: 23, lastActive: Date.now() - 7 * 86400000, sources: 'claude+codex' },
+      { path: '/Users/you/Documents/win26/ekai/api-vault', sessions: 17, lastActive: Date.now() - 5 * 86400000, sources: 'claude+codex' },
+      { path: '/Users/you/Documents/win26/ekai/router-daybook', sessions: 4, lastActive: Date.now() - 3600000, sources: 'claude' },
+      { path: '/Users/you/Documents/win26/docs', sessions: 121, lastActive: Date.now() - 3600000, sources: 'claude+codex' },
+    ],
+    grantFolders: async () => ({ ok: true }),
+    skipOnboarding: async () => ({ ok: true }),
+    pickFolder: async () => '/Users/you/Documents/example',
     inbox: async () => tasks.filter((t) => ['input-required', 'auth-required'].includes(t.status.state)),
     handled: async () => tasks.filter((t) => ['completed', 'canceled', 'rejected'].includes(t.status.state)),
     show: async (id) => tasks.find((t) => t.id === id),
@@ -34,16 +44,17 @@ const MOCKED = !window.alignos;
 const text = (parts) => (parts || []).filter((p) => p.kind === 'text').map((p) => p.text).join('\n');
 const initial = (name) => ((name || '').trim()[0] || '?').toUpperCase();
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-const ago = (iso) => {
-  if (!iso) return '';
-  const s = (Date.now() - Date.parse(iso)) / 1000;
+const ago = (when) => {
+  if (!when) return '';
+  const t = typeof when === 'number' ? when : Date.parse(when);
+  const s = (Date.now() - t) / 1000;
   if (s < 60) return 'just now';
   if (s < 3600) return Math.floor(s / 60) + 'm';
   if (s < 86400) return Math.floor(s / 3600) + 'h';
   return Math.floor(s / 86400) + 'd';
 };
 
-const SECTIONS = ['loading', 'connect', 'inbox', 'allclear', 'review', 'handled', 'prefs', 'error'];
+const SECTIONS = ['loading', 'connect', 'folders', 'inbox', 'allclear', 'review', 'handled', 'prefs', 'error'];
 const OUTCOME = { completed: 'Sent', canceled: 'Declined', rejected: 'Declined' };
 function setView(v) {
   for (const s of SECTIONS) $(s).hidden = s !== v;
@@ -59,14 +70,37 @@ async function boot() {
   try {
     const b = await api.bootstrap();
     if (MOCKED) $('priv').textContent = 'Private · demo';
-    if (b.connected) { await loadInbox(); openFromHash(); return; }
-    setView('connect');
+    if (!b.connected) return setView('connect');
+    if (!b.onboarded) return openFolders();
+    await loadInbox(); openFromHash();
   } catch (e) { fail(e.message); }
+}
+
+let _moreFolders = [];
+function folderRow(f, checked) {
+  const li = document.createElement('li');
+  li.className = 'frow';
+  const why = `${f.sessions || 0} session${f.sessions === 1 ? '' : 's'}${f.lastActive ? ' · ' + ago(f.lastActive) : ''}`;
+  li.innerHTML = `<label><input type="checkbox" ${checked ? 'checked' : ''} data-path="${esc(f.path)}">` +
+    `<span class="fpath">${esc(f.path.replace(/^\/Users\/[^/]+/, '~'))}</span>` +
+    `<span class="fwhy">${esc(why)}</span></label>`;
+  return li;
+}
+async function openFolders() {
+  setView('folders');
+  let list = [];
+  try { list = await api.suggestFolders(); } catch (e) { /* show empty list, still usable */ }
+  const ul = $('folders-list'); ul.innerHTML = '';
+  list.slice(0, 10).forEach((f) => ul.appendChild(folderRow(f, true))); // option 2: pre-check all suggested
+  _moreFolders = list.slice(10);
+  $('folders-more').hidden = _moreFolders.length === 0;
+  $('folders-more').textContent = `＋ ${_moreFolders.length} more folders`;
 }
 
 // Deep-link to a specific request, e.g. from a notification: index.html#open=<taskId>
 function openFromHash() {
   const h = location.hash || '';
+  if (h === '#folders') return openFolders();
   if (h === '#handled') return loadHandled();
   const m = h.match(/^#open=(.+)/);
   if (m) openReview(decodeURIComponent(m[1]));
@@ -142,7 +176,7 @@ function wire() {
   $('connect-go').addEventListener('click', async () => {
     const url = $('connect-url').value.trim();
     if (!url) { $('connect-err').textContent = 'Enter your space address.'; $('connect-err').hidden = false; return; }
-    try { await api.setup({ url }); $('connect-err').hidden = true; loadInbox(); }
+    try { await api.setup({ url }); $('connect-err').hidden = true; openFolders(); }
     catch (e) { $('connect-err').textContent = e.message; $('connect-err').hidden = false; }
   });
   $('open-inbox').addEventListener('click', loadInbox);
@@ -153,6 +187,22 @@ function wire() {
   $('prefs-back').addEventListener('click', loadInbox);
   $('rv-back').addEventListener('click', loadInbox);
   $('retry').addEventListener('click', boot);
+  $('folders-skip').addEventListener('click', async () => { try { await api.skipOnboarding(); loadInbox(); } catch (e) { fail(e.message); } });
+  $('folders-continue').addEventListener('click', async () => {
+    const checked = [...document.querySelectorAll('#folders-list input[data-path]:checked')].map((i) => i.dataset.path);
+    try {
+      await api.grantFolders(checked, { useHistory: $('opt-history').checked, useAllLogs: $('opt-alllogs').checked });
+      toast(`Granted ${checked.length} folder${checked.length === 1 ? '' : 's'}.`);
+      loadInbox();
+    } catch (e) { fail(e.message); }
+  });
+  $('folders-add').addEventListener('click', async () => {
+    try { const p = await api.pickFolder(); if (p) $('folders-list').appendChild(folderRow({ path: p, sessions: 0 }, true)); } catch (e) { fail(e.message); }
+  });
+  $('folders-more').addEventListener('click', () => {
+    for (const f of _moreFolders) $('folders-list').appendChild(folderRow(f, true));
+    _moreFolders = []; $('folders-more').hidden = true;
+  });
   $('rv-approve').addEventListener('click', async () => { try { await api.approve(current.id); toast('Approved — sent.'); loadInbox(); } catch (e) { fail(e.message); } });
   $('rv-decline').addEventListener('click', async () => { try { await api.decline(current.id); toast('Declined.'); loadInbox(); } catch (e) { fail(e.message); } });
   $('rv-followup').addEventListener('click', () => {

@@ -1,11 +1,13 @@
 'use strict';
 // Electron main — thin: every handler just calls the shared src/ modules (same code the
 // CLI uses). No logic lives here.
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const mc = require('./mesh-client');
 const cfg = require('./config');
 const store = require('./inbox-store');
+const scope = require('./scope');
+const transcripts = require('./transcripts');
 
 let win;
 function createWindow() {
@@ -25,8 +27,18 @@ app.whenReady().then(createWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
-ipcMain.handle('bootstrap', async () => { const c = cfg.load(); return { connected: !!c.url, url: c.url || '' }; });
+ipcMain.handle('bootstrap', async () => { const c = cfg.load(); return { connected: !!c.url, onboarded: !!scope.load().onboarded, url: c.url || '' }; });
 ipcMain.handle('setup', async (_e, { url }) => { cfg.save({ url: String(url).replace(/\/$/, '') }); return { ok: true }; });
+ipcMain.handle('suggest-folders', async () => transcripts.suggestFolders({ days: 30 }));
+ipcMain.handle('pick-folder', async () => {
+  const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'], message: 'Folder your assistant may read' });
+  return r.canceled ? null : r.filePaths[0];
+});
+ipcMain.handle('grant-folders', async (_e, { folders, useHistory, useAllLogs }) => {
+  const s = scope.grant(folders || [], { useHistory: !!useHistory, useAllLogs: !!useAllLogs });
+  return scope.save({ ...s, onboarded: true });
+});
+ipcMain.handle('skip-onboarding', async () => scope.save({ ...scope.load(), onboarded: true }));
 ipcMain.handle('inbox', async () => mc.inbox());
 ipcMain.handle('handled', async () => mc.handled());
 ipcMain.handle('show', async (_e, { id }) => mc.getTask(id));
