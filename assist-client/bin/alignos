@@ -32,15 +32,16 @@ async function main() {
   if (['show', 'approve', 'followup', 'decline'].includes(cmd)) id = await resolveId(id);
   switch (cmd) {
     case 'setup': {
-      const url = flag('--url') || (argv[1] && !argv[1].startsWith('--') ? argv[1] : undefined);
-      if (!url) throw new Error('usage: alignos setup --url <gateway>');
-      cfg.save({ url: url.replace(/\/$/, '') });
-      console.log('connected to your private space:', url);
-      // TODO(phase 2): claim ownership with --token and register the owner key.
+      const url = (flag('--url') || (argv[1] && !argv[1].startsWith('--') ? argv[1] : '')).replace(/\/$/, '');
+      const token = flag('--token');
+      if (!url) throw new Error('usage: alignos setup --url <gateway> --token <token>');
+      cfg.save({ url });
+      if (token) { await require('../src/identity').claim(url, token); console.log('claimed ownership of', url); }
+      else console.log('connected to', url, '(no --token: owner routes stay unauthorized until claimed)');
       break;
     }
     case 'status':
-      console.log('private space:', cfg.load().url || '(not set — run: alignos setup --url <gateway>)');
+      console.log('private space:', cfg.load().url || '(not set — run: alignos setup --url <gateway> --token <token>)');
       break;
     case 'inbox': {
       const tasks = await mc.inbox();

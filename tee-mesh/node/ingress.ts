@@ -1,12 +1,13 @@
 // The node's single HTTP surface: self card, peer directory, gossip intake, dstack quote,
 // and the reverse-proxy to local agent containers. Cross-CVM agent calls land on /agents/*
 // too — agents never reach the outside directly; the node is the sole egress.
-import type { NodeCard } from "./cards.ts";
+import { type NodeCard, serviceFromCard } from "./cards.ts";
 import type { Directory } from "./gossip.ts";
 import type { Identity } from "./identity.ts";
 import { appendEvent } from "./eventlog.ts";
 import { handleA2A } from "./a2a.ts";
-import type { TaskStore, Policy } from "./inbox.ts";
+import { claim, verifyOwner } from "./owner.ts";
+import type { Policy, TaskStore } from "./inbox.ts";
 import { route } from "./router.ts";
 import { DASHBOARD_HTML } from "./dashboard.ts";
 
@@ -27,13 +28,32 @@ export function makeHandler(ctx: IngressCtx) {
     const url = new URL(req.url);
     const p = url.pathname;
 
-    if (p === "/.well-known/agent-card.json") return Response.json(ctx.getSelfCard());
+    if (p === "/.well-known/agent-card.json") {
+      return Response.json(ctx.getSelfCard());
+    }
+    if (p === "/.well-known/alignos-service.json") {
+      return Response.json(serviceFromCard(ctx.getSelfCard()));
+    }
 
     if (p === "/peers") {
       const now = Date.now();
-      return Response.json(ctx.dir.all().map((c) => ({
-        ...c, stale: c.last_seen ? now - Date.parse(c.last_seen) > STALE_MS : false,
-      })));
+      return Response.json(
+        ctx.dir.all().map((c) => ({
+          ...c,
+          stale: c.last_seen ? now - Date.parse(c.last_seen) > STALE_MS : false,
+        })),
+      );
+    }
+
+    if (p === "/services") {
+      const now = Date.now();
+      const services = ctx.dir.all().map((c) =>
+        serviceFromCard({
+          ...c,
+          stale: c.last_seen ? now - Date.parse(c.last_seen) > STALE_MS : false,
+        })
+      );
+      return Response.json({ services });
     }
 
     if (p === "/gossip" && req.method === "POST") {
@@ -53,21 +73,42 @@ export function makeHandler(ctx: IngressCtx) {
     }
 
     if (p === "/dashboard") {
-      return new Response(DASHBOARD_HTML, { headers: { "content-type": "text/html; charset=utf-8" } });
+      return new Response(DASHBOARD_HTML, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
     }
 
     if (p === "/") {
       return Response.json({
-        alignOS: true, node_id: ctx.selfId, app_id: ctx.identity.app_id, mode: ctx.identity.mode,
-        agents: [...ctx.agents.keys()], peers: ctx.dir.all().length,
+        alignOS: true,
+        node_id: ctx.selfId,
+        app_id: ctx.identity.app_id,
+        mode: ctx.identity.mode,
+        agents: [...ctx.agents.keys()],
+        peers: ctx.dir.all().length,
       });
     }
 
-    // A2A surface (assist-remote). Public for peers; /owner/* for the owner's client.
-    // TODO(phase 2): wrap /owner/* in the Ed25519 owner-auth envelope check.
+    // A2A surface (assist-remote). Public for peers; /owner/* requires the Ed25519 owner
+    // envelope. /owner/claim is the one unauthenticated owner route (setup-token bootstrap).
     const a2a = { store: ctx.store, policy: ctx.policy, selfId: ctx.selfId };
-    if (p === "/a2a" && req.method === "POST") return handleA2A(a2a, req, false);
-    if (p === "/owner/a2a" && req.method === "POST") return handleA2A(a2a, req, true);
+    if (p === "/a2a" && req.method === "POST") {
+      return handleA2A(a2a, await req.text(), false);
+    }
+    if (p === "/owner/claim" && req.method === "POST") {
+      const { token, pubkey } = await req.json().catch(() => ({})) as {
+        token?: string;
+        pubkey?: string;
+      };
+      return Response.json(claim(token ?? "", pubkey ?? ""));
+    }
+    if (p === "/owner/a2a" && req.method === "POST") {
+      const bodyText = await req.text();
+      if (!verifyOwner(req.method, p, bodyText, req.headers)) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      return handleA2A(a2a, bodyText, true);
+    }
 
     const m = p.match(/^\/agents\/([^/]+)(\/.*)?$/);
     if (m) return proxyAgent(ctx, req, url, m[1], m[2] ?? "/");
@@ -76,14 +117,35 @@ export function makeHandler(ctx: IngressCtx) {
   };
 }
 
-async function proxyAgent(ctx: IngressCtx, req: Request, url: URL, name: string, rest: string): Promise<Response> {
+async function proxyAgent(
+  ctx: IngressCtx,
+  req: Request,
+  url: URL,
+  name: string,
+  rest: string,
+): Promise<Response> {
   const base = ctx.agents.get(name);
   if (!base) return new Response(`unknown agent: ${name}`, { status: 404 });
   const headers = new Headers(req.headers);
   headers.delete("host");
-  const body = req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer();
+  const body = req.method === "GET" || req.method === "HEAD"
+    ? undefined
+    : await req.arrayBuffer();
   const t0 = Date.now();
-  const resp = await fetch(base + rest + url.search, { method: req.method, headers, body, redirect: "manual" });
-  await appendEvent("agent_proxy", { agent: name, status: resp.status, ms: Date.now() - t0, run_id: crypto.randomUUID() });
-  return new Response(resp.body, { status: resp.status, headers: resp.headers });
+  const resp = await fetch(base + rest + url.search, {
+    method: req.method,
+    headers,
+    body,
+    redirect: "manual",
+  });
+  await appendEvent("agent_proxy", {
+    agent: name,
+    status: resp.status,
+    ms: Date.now() - t0,
+    run_id: crypto.randomUUID(),
+  });
+  return new Response(resp.body, {
+    status: resp.status,
+    headers: resp.headers,
+  });
 }

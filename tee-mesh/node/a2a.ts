@@ -17,9 +17,9 @@ const ok = (id: unknown, result: unknown) => Response.json({ jsonrpc: "2.0", id,
 const rpcErr = (id: unknown, code: number, message: string) =>
   Response.json({ jsonrpc: "2.0", id, error: { code, message } });
 
-export async function handleA2A(ctx: A2ACtx, req: Request, owner: boolean): Promise<Response> {
+export async function handleA2A(ctx: A2ACtx, bodyText: string, owner: boolean): Promise<Response> {
   let rpc: RpcReq;
-  try { rpc = await req.json() as RpcReq; } catch { return rpcErr(null, -32700, "parse error"); }
+  try { rpc = JSON.parse(bodyText) as RpcReq; } catch { return rpcErr(null, -32700, "parse error"); }
   const { id, method, params } = rpc;
   try {
     switch (method) {

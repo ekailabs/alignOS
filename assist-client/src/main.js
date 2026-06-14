@@ -28,7 +28,12 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
 ipcMain.handle('bootstrap', async () => { const c = cfg.load(); return { connected: !!c.url, onboarded: !!scope.load().onboarded, url: c.url || '' }; });
-ipcMain.handle('setup', async (_e, { url }) => { cfg.save({ url: String(url).replace(/\/$/, '') }); return { ok: true }; });
+ipcMain.handle('setup', async (_e, { url, token }) => {
+  const clean = String(url).replace(/\/$/, '');
+  cfg.save({ url: clean });
+  if (token) await require('./identity').claim(clean, token);
+  return { ok: true };
+});
 ipcMain.handle('suggest-folders', async () => agentLogs.suggestFolders({ days: 30 }));
 ipcMain.handle('pick-folder', async () => {
   const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'], message: 'Folder your assistant may read' });
