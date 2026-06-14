@@ -69,10 +69,11 @@
     <section class="card setup" id="consent" hidden>
       <div class="mark">◇</div>
       <h1>Learn your style</h1>
-      <p class="lead">AlignOS learns how you write, to reply in your voice. It stays on this
-        computer; only a redacted digest leaves.</p>
+      <p class="lead">AlignOS reads your local assistant history and extracts redacted examples
+        of how you write, to reply in your voice.</p>
       <button class="link" id="consent-info" style="margin:0 0 2px">ⓘ What leaves your machine</button>
       <div class="leaves" id="leaves" hidden>
+        <div class="leaves-row"><span class="lk">Reads</span> Claude, Codex, OpenClaw, Pi, OpenCode, Hermes · last 7 days, on this computer</div>
         <div class="leaves-row ok"><span class="lk">✓ Uploaded</span> redacted prompt/reply examples for style</div>
         <div class="leaves-row no"><span class="lk">✗ Never</span> raw logs, code, file contents, or secrets</div>
         <div class="redact-eg"><code>KEY=sk-ant-abc123…</code><span class="arrow">→</span><code>KEY=sk-▮▮▮▮▮▮</code></div>
