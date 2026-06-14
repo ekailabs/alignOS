@@ -1,42 +1,75 @@
-// assist-remote: draft the reply Artifact for a task — INSIDE the CVM.
-// v1 (phase 5) calls a model API with a key provisioned to the CVM. This phase-1 stub
-// returns a deterministic placeholder so the full inbox loop is testable without a model.
+// assist-remote: draft the reply Artifact — INSIDE the CVM / on the node.
+// Inference uses a LOCAL model CLI when available (claude -p / codex / pi — no API key, the
+// daybook pattern), falling back to the Anthropic API, then a placeholder.
+// Backend: ALIGN_DRAFT_BACKEND = auto (default → claude) | claude | codex | pi | api.
 import { type Task, type Artifact, textOf } from "./inbox.ts";
 
-const MODEL_KEY = Deno.env.get("ANTHROPIC_API_KEY"); // provisioned to the CVM (dstack secret/env)
+const BACKEND = (Deno.env.get("ALIGN_DRAFT_BACKEND") ?? "auto").toLowerCase();
+const MODEL_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
 export async function draftReply(task: Task, instruction: string): Promise<Artifact> {
-  const ask = textOf(task.history[0]?.parts ?? []);
-  const text = MODEL_KEY
-    ? await callModel(task, instruction)
-    : `Thanks for reaching out. (placeholder draft — no model key set)\nRe: "${ask.slice(0, 160)}"` +
-      (instruction ? `\n[revised per your note: ${instruction}]` : "");
+  const text = await infer(task, instruction);
   return { artifactId: crypto.randomUUID(), name: "reply", parts: [{ kind: "text", text }] };
 }
 
-// TODO(phase 5): real prompt assembly (notes/knowledge grounding) + streaming.
-async function callModel(task: Task, instruction: string): Promise<string> {
+function buildPrompt(task: Task, instruction: string): { system: string; user: string } {
   const ask = textOf(task.history[0]?.parts ?? []);
-  const sys = "You are the owner's assistant. Draft a concise, friendly reply to another " +
-    "person's assistant. Plain text, no preamble. The owner will review before it is sent.";
+  const who = task.from.display ?? "another assistant";
+  const system =
+    "You are the owner's personal assistant. Draft a concise, friendly reply to another " +
+    "person's assistant. Plain text only — no preamble, no markdown, no sign-off line. The " +
+    "owner will review your draft before it is sent.";
   const user = instruction
-    ? `The current request was:\n${ask}\n\nThe owner asked you to revise the reply: ${instruction}`
-    : `Draft a reply to this request from ${task.from.display ?? "another assistant"}:\n${ask}`;
+    ? `The request from ${who} was:\n${ask}\n\nThe owner asked you to revise your reply: ${instruction}`
+    : `Draft a reply to this request from ${who}:\n${ask}`;
+  return { system, user };
+}
+
+async function infer(task: Task, instruction: string): Promise<string> {
+  const { system, user } = buildPrompt(task, instruction);
+  const order = BACKEND === "auto" ? ["claude", "api"] : [BACKEND];
+  for (const b of order) {
+    try {
+      if (b === "claude") return (await runCli("claude", ["-p", "--append-system-prompt", system], user)).trim();
+      if (b === "codex") return (await runCli("codex", ["exec", "--skip-git-repo-check", `${system}\n\n${user}`], null)).trim();
+      if (b === "pi") return (await runCli("pi", ["-p", `${system}\n\n${user}`], null)).trim();
+      if (b === "api" && MODEL_KEY) return (await callApi(system, user)).trim();
+    } catch (_e) { /* fall through to the next backend */ }
+  }
+  const ask = textOf(task.history[0]?.parts ?? []);
+  return `Thanks for reaching out. (placeholder draft — no local model available)\nRe: "${ask.slice(0, 160)}"`;
+}
+
+// Spawn a local CLI; pass the prompt on stdin (claude) or as an arg (codex/pi). Time-bounded.
+async function runCli(cmd: string, args: string[], stdinText: string | null): Promise<string> {
+  const child = new Deno.Command(cmd, {
+    args,
+    stdin: stdinText == null ? "null" : "piped",
+    stdout: "piped",
+    stderr: "piped",
+    signal: AbortSignal.timeout(120_000),
+  }).spawn();
+  if (stdinText != null) {
+    const w = child.stdin.getWriter();
+    await w.write(new TextEncoder().encode(stdinText));
+    await w.close();
+  }
+  const { code, stdout, stderr } = await child.output();
+  const out = new TextDecoder().decode(stdout).trim();
+  if (code !== 0 || !out) throw new Error(`${cmd} exited ${code}: ${new TextDecoder().decode(stderr).slice(0, 200)}`);
+  return out;
+}
+
+async function callApi(system: string, user: string): Promise<string> {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": MODEL_KEY!,
-      "anthropic-version": "2023-06-01",
-    },
+    headers: { "content-type": "application/json", "x-api-key": MODEL_KEY!, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: Deno.env.get("ALIGN_MODEL") ?? "claude-sonnet-4-6",
-      max_tokens: 600,
-      system: sys,
-      messages: [{ role: "user", content: user }],
+      max_tokens: 600, system, messages: [{ role: "user", content: user }],
     }),
   });
   if (!r.ok) throw new Error(`model API ${r.status}: ${await r.text()}`);
   const j = await r.json();
-  return (j.content ?? []).filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("\n").trim();
+  return (j.content ?? []).filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("\n");
 }
