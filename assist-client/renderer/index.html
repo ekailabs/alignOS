@@ -71,6 +71,13 @@
         <b>Claude, Codex, OpenClaw, Pi, OpenCode, and Hermes</b> — from the <b>last 30 days</b>, on this computer.
         It distills <i>how you write</i> into a redacted digest; raw logs, code, and secrets never
         leave your machine.</p>
+      <button class="link" id="consent-info" style="margin:0 0 2px">ⓘ What leaves your machine</button>
+      <div class="leaves" id="leaves" hidden>
+        <div class="leaves-row ok"><span class="lk">✓ Uploaded</span> a redacted digest of how you write — prompt → reply pairs</div>
+        <div class="leaves-row no"><span class="lk">✗ Never</span> raw logs, code, file contents, or secrets</div>
+        <div class="redact-eg"><code>KEY=sk-ant-abc123…</code><span class="arrow">→</span><code>KEY=sk-▮▮▮▮▮▮</code></div>
+        <div class="leaves-dest">Goes only to your private space (TEE).</div>
+      </div>
       <div class="folders-actions">
         <button class="link" id="consent-skip">Not now</button>
         <button class="btn primary" id="consent-approve">Approve &amp; continue →</button>
@@ -79,7 +86,13 @@
 
     <!-- SEEDING (onboarding step 3) -->
     <section class="card state" id="seeding" hidden>
-      <div class="spinner"></div>
+      <svg class="seed-art" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="r r1" cx="60" cy="60" r="22" />
+        <circle class="r r2" cx="60" cy="60" r="22" />
+        <circle class="r r3" cx="60" cy="60" r="22" />
+        <circle class="core" cx="60" cy="60" r="10" />
+        <circle class="orb" cx="60" cy="26" r="3.5" />
+      </svg>
       <p class="status">Teaching your assistant your style…</p>
       <p class="seed-quote" id="seed-quote">…</p>
       <div class="seed-sources" id="seed-sources"></div>

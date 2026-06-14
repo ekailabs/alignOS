@@ -181,6 +181,14 @@ async function seedAndEnter() {
 // Deep-link to a specific request, e.g. from a notification: index.html#open=<taskId>
 function openFromHash() {
   const h = location.hash || '';
+  if (h === '#welcome') return setView('welcome');
+  if (h === '#consent') { setView('consent'); $('leaves').hidden = false; return; }
+  if (h === '#seeding') {
+    setView('seeding'); _qi = 0; rotateQuote();
+    renderSeedSources({ claude: 40, codex: 15, openclaw: 4, pi: 3, opencode: 2, hermes: 2 });
+    $('seed-progress').textContent = 'Seeded 66 prompt/output pairs from the last 30 days.';
+    return;
+  }
   if (h === '#folders') return openFolders();
   if (h === '#handled') return loadHandled();
   const m = h.match(/^#open=(.+)/);
@@ -266,6 +274,7 @@ function wire() {
   });
   $('consent-approve').addEventListener('click', seedAndEnter);
   $('consent-skip').addEventListener('click', loadInbox);
+  $('consent-info').addEventListener('click', () => { const l = $('leaves'); l.hidden = !l.hidden; });
   $('open-inbox').addEventListener('click', loadInbox);
   $('open-handled').addEventListener('click', loadHandled);
   $('allclear-handled').addEventListener('click', loadHandled);
