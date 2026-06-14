@@ -17,3 +17,24 @@ export function similarity(a: string, b: string): number {
 export function converged(a: string, b: string, threshold = 0.85): boolean {
   return similarity(a, b) >= threshold;
 }
+
+export interface RunLoopOpts {
+  passes: number;
+  first: () => Promise<string>;
+  refine: (current: string, k: number) => Promise<string>;
+  isConverged?: (a: string, b: string) => boolean;
+}
+
+export async function runLoop(opts: RunLoopOpts): Promise<string[]> {
+  const passes = Math.max(1, Math.min(opts.passes, 8));
+  const isConverged = opts.isConverged ?? converged;
+  let current = await opts.first();
+  const trail = [current];
+  for (let k = 2; k <= passes; k++) {
+    const next = await opts.refine(current, k);
+    trail.push(next);
+    if (isConverged(current, next)) break;
+    current = next;
+  }
+  return trail;
+}
