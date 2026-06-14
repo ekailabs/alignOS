@@ -5,9 +5,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DENO="${DENO:-$(command -v deno || true)}"
-ANVIL="${ANVIL:-$(command -v anvil || true)}"; ANVIL="${ANVIL:-$HOME/.foundry/bin/anvil}"
-FORGE="${FORGE:-$(command -v forge || true)}"; FORGE="${FORGE:-$HOME/.foundry/bin/forge}"
-CAST="${CAST:-$(command -v cast || true)}"; CAST="${CAST:-$HOME/.foundry/bin/cast}"
+ANVIL="${ANVIL:-$([ -x "$HOME/.foundry/bin/anvil" ] && echo "$HOME/.foundry/bin/anvil" || command -v anvil || true)}"
+FORGE="${FORGE:-$([ -x "$HOME/.foundry/bin/forge" ] && echo "$HOME/.foundry/bin/forge" || command -v forge || true)}"
+CAST="${CAST:-$([ -x "$HOME/.foundry/bin/cast" ] && echo "$HOME/.foundry/bin/cast" || command -v cast || true)}"
 [ -x "$DENO" ] || { echo "deno not found; install Deno or set DENO=/path/to/deno" >&2; exit 127; }
 [ -x "$ANVIL" ] || { echo "anvil not found; install Foundry or set ANVIL=/path/to/anvil" >&2; exit 127; }
 [ -x "$FORGE" ] || { echo "forge not found; install Foundry or set FORGE=/path/to/forge" >&2; exit 127; }
@@ -26,7 +26,7 @@ sleep 1.5
 
 echo "== deploy AlignRegistry =="
 cd "$ROOT/contracts"
-ADDR=$("$FORGE" create src/AlignRegistry.sol:AlignRegistry --rpc-url "$RPC" --private-key "$KEY" --broadcast --json | "$DENO" eval 'const d=JSON.parse(await new Response(Deno.stdin.readable).text());console.log(d.deployedTo)')
+ADDR=$("$FORGE" create src/AlignRegistry.sol:AlignRegistry --rpc-url "$RPC" --private-key "$KEY" --json | "$DENO" eval 'const txt=await new Response(Deno.stdin.readable).text(); const s=txt.indexOf("{"), e=txt.lastIndexOf("}"); if(s<0||e<s) throw new Error("forge did not return JSON: "+txt); const d=JSON.parse(txt.slice(s,e+1)); console.log(d.deployedTo)')
 echo "registry: $ADDR"
 
 start_agent() { # skill port
@@ -48,6 +48,15 @@ start_node() { # id port manifest
     REGISTRY_RPC="$RPC" REGISTRY_CONTRACT="$ADDR" PRIVATE_KEY="$KEY" \
     "$DENO" run --allow-net --allow-env --allow-read --allow-write main.ts >"$WORK/$1.log" 2>&1 & PIDS+=($!)
 }
+wait_log() { # file pattern label
+  for _ in $(seq 1 30); do
+    grep -q "$2" "$1" 2>/dev/null && return 0
+    sleep 1
+  done
+  echo "FAIL: timed out waiting for $3" >&2
+  tail -80 "$1" >&2 || true
+  exit 1
+}
 
 echo "== agents (different persona/domain skill per node) =="
 start_agent albi 9101
@@ -60,9 +69,21 @@ echo '[{"name":"shashank","url":"http://localhost:9301"}]' > "$WORK/c.json"
 
 echo "== nodes =="
 start_node albi 8081 "$WORK/a.json"
+wait_log "$WORK/albi.log" "registered on-chain" "Albi registration"
 start_node andrew 8082 "$WORK/b.json"
+wait_log "$WORK/andrew.log" "registered on-chain" "Andrew registration"
 start_node shashank 8083 "$WORK/c.json"
-sleep 8
+wait_log "$WORK/shashank.log" "registered on-chain" "Shashank registration"
+for _ in $(seq 1 30); do
+  N=$({ curl -s http://localhost:8081/peers || true; } | "$DENO" eval 'try { console.log(JSON.parse(await new Response(Deno.stdin.readable).text()).length) } catch { console.log(0) }')
+  [ "$N" = "3" ] && break
+  sleep 1
+done
+if [ "${N:-0}" != "3" ]; then
+  echo "FAIL: Albi sees ${N:-0} nodes after waiting for convergence" >&2
+  for f in "$WORK"/*.log; do echo "---- $f ----" >&2; tail -80 "$f" >&2 || true; done
+  exit 1
+fi
 
 echo "== /peers as seen by Albi =="
 curl -s http://localhost:8081/peers | "$DENO" eval 'const ps=JSON.parse(await new Response(Deno.stdin.readable).text()); for(const p of ps) console.log(`  ${p.app_id} v${p.version} agents=[${p.agents.map(a=>a.name).join(",")}] stale=${p.stale}`)'
@@ -73,7 +94,7 @@ curl -s http://localhost:8081/services | "$DENO" eval 'const d=JSON.parse(await 
 echo "== cross-node proxy: ask Albi for Shashank's agent URL, then call it =="
 URL=$(curl -s http://localhost:8081/peers | "$DENO" eval 'const ps=JSON.parse(await new Response(Deno.stdin.readable).text()); const c=ps.find(p=>p.app_id==="shashank"); console.log(c.agents.find(a=>a.name==="shashank").url)')
 echo "  resolved: $URL"
-curl -s "$URL?q=how should we design the agent routing layer?" ; echo
+curl -sG "$URL" --data-urlencode "q=how should we design the agent routing layer?" ; echo
 
 echo "== on-chain getMembers() =="
 "$CAST" call "$ADDR" "getMembers()(bytes32[])" --rpc-url "$RPC"

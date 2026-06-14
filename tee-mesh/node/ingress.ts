@@ -8,7 +8,14 @@ import { appendEvent } from "./eventlog.ts";
 import { handleA2A } from "./a2a.ts";
 import { claim, verifyOwner } from "./owner.ts";
 import { setCorpus } from "./knowledge.ts";
-import type { Policy, TaskStore } from "./inbox.ts";
+import {
+  type Message,
+  type Part,
+  type Policy,
+  type Task,
+  TaskStore,
+  textMessage,
+} from "./inbox.ts";
 import { route } from "./router.ts";
 import { DASHBOARD_HTML } from "./dashboard.ts";
 
@@ -120,8 +127,23 @@ export function makeHandler(ctx: IngressCtx) {
       if (!verifyOwner(req.method, p, bodyText, req.headers)) {
         return new Response("unauthorized", { status: 401 });
       }
-      const body = JSON.parse(bodyText) as { pairs?: unknown; chains?: unknown };
+      const body = JSON.parse(bodyText) as {
+        pairs?: unknown;
+        chains?: unknown;
+      };
       return Response.json(setCorpus(body));
+    }
+    if (p === "/owner/request" && req.method === "POST") {
+      const bodyText = await req.text();
+      if (!verifyOwner(req.method, p, bodyText, req.headers)) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      const body = JSON.parse(bodyText) as ProviderRequestBody;
+      try {
+        return Response.json(await requestProvider(ctx, body));
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 400 });
+      }
     }
 
     const m = p.match(/^\/agents\/([^/]+)(\/.*)?$/);
@@ -139,7 +161,10 @@ async function handleAsk(
   handle: string,
 ): Promise<Response> {
   const self = ctx.getSelfCard();
-  const selfHandle = self.owner?.handle?.toLowerCase();
+  // Service discovery falls back to app_id when operator owner metadata is absent
+  // (cards.ts: serviceFromCard). Accept that same fallback here so every node's
+  // advertised /ask-<owner> endpoint actually lands in its own durable inbox.
+  const selfHandle = (self.owner?.handle ?? self.app_id).toLowerCase();
   if (selfHandle !== handle) {
     const peer = ctx.dir.all().find((c) =>
       c.owner?.handle?.toLowerCase() === handle
@@ -176,16 +201,15 @@ async function handleAsk(
   }
 
   if (mode === "deep") {
-    return Response.json({
-      mode,
-      owner: self.owner,
+    const t = await createDeepModeTask(a2a.store, {
       question,
-      status: "requires-local-client",
-      handoff: "assist-client",
-      folder_access: "explicit-per-request",
-      message:
-        "Deep Mode runs on the owner's local machine; the TEE can suggest scoped access, but the edge enforces approval.",
+      from: {
+        node_id: "ask-endpoint",
+        agent: `ask-${handle}`,
+        display: `ask-${handle}`,
+      },
     });
+    return Response.json(t);
   }
 
   const rpc = {
@@ -206,6 +230,158 @@ async function handleAsk(
     },
   };
   return handleA2A(a2a, JSON.stringify(rpc), false);
+}
+
+async function createDeepModeTask(
+  store: TaskStore,
+  opts: { question: string; from: Task["from"] },
+): Promise<Task> {
+  const now = new Date().toISOString();
+  const ask: Message = {
+    role: "user",
+    parts: [{ kind: "text", text: opts.question }],
+    messageId: crypto.randomUUID(),
+  };
+  const t: Task = {
+    id: crypto.randomUUID(),
+    contextId: crypto.randomUUID(),
+    status: {
+      state: "auth-required",
+      timestamp: now,
+      message: textMessage(
+        "agent",
+        "Deep Mode needs your local client and scoped approval before it can read files or run local tools.",
+      ),
+    },
+    artifacts: [],
+    history: [ask],
+    from: opts.from,
+    created_at: now,
+    updated_at: now,
+  };
+  t.status.message!.taskId = t.id;
+  t.status.message!.contextId = t.contextId;
+  await store.put(t);
+  await appendEvent("deep_mode_buffered", {
+    task: t.id,
+    from: t.from.display ?? t.from.node_id ?? "unknown",
+  });
+  return t;
+}
+
+interface ProviderRequestBody {
+  question?: unknown;
+  mode?: unknown;
+  owner?: unknown;
+  url?: unknown;
+}
+
+async function requestProvider(
+  ctx: IngressCtx,
+  body: ProviderRequestBody,
+): Promise<Task> {
+  const question = String(body.question ?? "").trim();
+  if (!question) throw new Error("question is required");
+  const mode = String(body.mode ?? "quick").toLowerCase();
+  if (mode !== "quick" && mode !== "deep") {
+    throw new Error("mode must be quick or deep");
+  }
+
+  const now = new Date().toISOString();
+  const task: Task = {
+    id: crypto.randomUUID(),
+    contextId: crypto.randomUUID(),
+    status: { state: "working", timestamp: now },
+    artifacts: [],
+    history: [{
+      role: "user",
+      parts: [{ kind: "text", text: question }],
+      messageId: crypto.randomUUID(),
+    }],
+    from: {
+      node_id: ctx.selfId,
+      agent: "assist-client",
+      display: "You",
+    },
+    created_at: now,
+    updated_at: now,
+  };
+  await ctx.store.put(task);
+  await appendEvent("owner_provider_request_created", { task: task.id, mode });
+
+  let target: URL;
+  const explicitUrl = String(body.url ?? "").trim();
+  if (explicitUrl) {
+    target = new URL(explicitUrl);
+  } else {
+    const owner = String(body.owner ?? "").trim().toLowerCase();
+    if (!owner) throw new Error("owner or url is required");
+    const peer = ctx.dir.all().find((c) =>
+      c.owner?.handle?.toLowerCase() === owner
+    );
+    if (!peer) throw new Error(`unknown provider owner: ${owner}`);
+    target = new URL(
+      `/ask-${owner}?mode=${encodeURIComponent(mode)}`,
+      peer.gateway_url,
+    );
+  }
+
+  try {
+    const resp = await fetch(target, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ question, mode }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const payload = await resp.json().catch(() => ({
+      error: `provider returned HTTP ${resp.status}`,
+    }));
+    task.artifacts = [{
+      artifactId: crypto.randomUUID(),
+      name: "provider-response",
+      parts: providerParts(payload),
+    }];
+    task.status = {
+      state: resp.ok ? "completed" : "failed",
+      timestamp: new Date().toISOString(),
+      message: textMessage(
+        "agent",
+        resp.ok
+          ? "Provider response saved."
+          : `Provider request failed with HTTP ${resp.status}.`,
+        task.id,
+        task.contextId,
+      ),
+    };
+    await appendEvent("owner_provider_request_finished", {
+      task: task.id,
+      provider: target.toString(),
+      status: resp.status,
+    });
+  } catch (e) {
+    task.status = {
+      state: "failed",
+      timestamp: new Date().toISOString(),
+      message: textMessage("agent", String(e), task.id, task.contextId),
+    };
+    await appendEvent("owner_provider_request_failed", {
+      task: task.id,
+      provider: target.toString(),
+      error: String(e),
+    });
+  }
+  await ctx.store.put(task);
+  return task;
+}
+
+function providerParts(payload: unknown): Part[] {
+  const task = payload as {
+    artifacts?: Array<{ parts?: Part[] }>;
+    status?: { state?: string };
+  };
+  const first = task?.artifacts?.[0]?.parts;
+  if (Array.isArray(first) && first.length) return first;
+  return [{ kind: "data", data: payload }];
 }
 
 async function proxyAgent(

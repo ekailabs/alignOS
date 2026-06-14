@@ -46,6 +46,9 @@ charge."*
   `~/.opencode`, and `~/.hermes`.
 - **Two operating modes:** Quick Mode runs in the TEE from synced notes + logs-derived
   memory; Deep Mode runs locally when a task needs folders, files, or local tools.
+- **TEE-owned buffering:** every request is durably represented in the owner's private
+  space. If the local Electron app / CLI / MCP bridge is offline, `assist-remote` holds the
+  task until the client reconnects.
 - **Preferences control center:** Connections (who can reach you), Auto-handle rules
   (allow-list), What your assistant knows (notes/docs and onboarding log memory in the
   private space), Folders it can read later in Deep Mode (deny-by-default, redacted).
@@ -144,6 +147,22 @@ the device, and such requests require the laptop online and always go to the inb
 drafting, mesh presence). The edge is its *privileged hands* — the only thing that can read
 local files.
 
+**Request hop invariant.** Requests from a local client never bypass the owner's TEE. The
+canonical path is:
+
+```
+assist-client / CLI / local MCP bridge
+  → owner's assist-remote (signed owner route, durable task/outbox)
+  → provider's assist-remote or provider A2A endpoint
+  → owner's assist-remote (result, follow-up, or approval-needed state)
+  → assist-client Inbox when the local client is live
+```
+
+If the local client is not live, the owner's `assist-remote` owns the buffer: pending
+provider calls, provider replies, human-review tasks, local-context requests, retries, and
+audit events remain in the CVM task store. The Electron app, CLI, or MCP bridge reconciles
+from that source of truth on reconnect.
+
 ---
 
 ## 5. A2A foundation
@@ -159,9 +178,13 @@ github.com/a2aproject/A2A.
 | `GET /.well-known/alignos-service.json` | Mesh peers / clients | This TEE projected as one owner-bound assistant service, including owner handle, `ask-{owner}` endpoint, owner-auth endpoint, Quick Mode URL, and Deep Mode handoff URL. |
 | `GET /peers` | Mesh peers / operators | Raw eventually-consistent directory of node cards. |
 | `GET /services` | Mesh peers / clients | Service discovery directory across the mesh. In the demo it returns Albi, Andrew, and Shashank as three owner assistant services. |
-| `GET\|POST /ask-<owner>?mode=quick\|deep` | Peer assistants / clients | Owner-specific ask endpoint, e.g. `/ask-albi`, `/ask-andrew`, `/ask-shashank`. `mode=quick` runs through the TEE; `mode=deep` returns a local `assist-client` handoff contract. |
+| `GET\|POST /ask-<owner>?mode=quick\|deep` | Peer assistants / clients | Owner-specific ask endpoint, e.g. `/ask-albi`, `/ask-andrew`, `/ask-shashank`. `mode=quick` runs through the TEE; `mode=deep` creates or returns a durable local-execution task for `assist-client`. |
 | `POST /a2a` | Peer assistants | Public A2A surface for inbound asks and task lookup. This is the TEE Quick Mode endpoint for service-to-service requests. |
 | `POST /owner/a2a` | Owner's `assist-client` | Owner-authenticated inbox/review/control surface. |
+
+Owner-originated provider requests use the same rule: the local client asks the owner's
+`assist-remote` to create a task and forward to the chosen provider TEE / A2A endpoint. The
+provider response is written back to the owner's task store before the UI sees it.
 
 - **Request object = the A2A `Task`** (`id`, `contextId`, `status`, `artifacts`, `history`).
   An inbox item is a `Task` in an interrupted state wrapped in a thin local envelope
@@ -194,7 +217,9 @@ webhooks.
 
 **Push transport = client-initiated.** Laptops are behind NAT / asleep, so `assist-client`
 opens the SSE stream *to* `assist-remote` (and polls `tasks/list` as a fallback). The durable
-queue (§8) is the source of truth; nothing depends on inbound reachability.
+queue (§8) is the source of truth; nothing depends on inbound reachability. A local MCP
+server, if enabled, is just another client-side adapter over the same owner-authenticated
+surface; it does not receive direct provider callbacks.
 
 **Owner-auth envelope** (every owner-route request — implement once in `mesh-client.js`, verify in `ingress.ts`):
 ```
@@ -217,13 +242,16 @@ std crypto (remote).
 - **`assist-client` (edge):** runs Deep Mode locally for work that needs folders, files, or
   local tools. It can hand a scoped + redacted result back to `assist-remote` for review and
   mesh reply handling.
+- **Local MCP bridge (optional):** a client-side MCP server can expose local tools to
+  Electron, Claude, Codex, or headless workflows. It is part of Deep Mode, runs on the edge,
+  and is only invoked for a durable task that the owner's TEE has recorded.
 
 **Modes:**
 
 | Mode | Runs where | Uses | Folder access | Default use |
 |---|---|---|---|---|
 | Quick Mode / TEE mode | `assist-remote` in the owner's CVM | Synced notes/docs, onboarding log memory, task history | No live folder access | Fast replies and "answer like the owner would" drafts based on prior logs. |
-| Deep Mode / local mode | `assist-client` on the owner's machine | Local folders/files/tools, local Claude/Codex-style execution, plus TEE context | Explicit, scoped, per request | Work that needs repo/file inspection or local tool execution. |
+| Deep Mode / local mode | `assist-client` on the owner's machine, optionally through local MCP tools | Local folders/files/tools, local Claude/Codex-style execution, plus TEE context | Explicit, scoped, per request | Work that needs repo/file inspection or local tool execution. |
 
 **Two firm rules:**
 1. **Execution follows data.** Quick Mode work lives entirely in the CVM and uses only
@@ -231,6 +259,9 @@ std crypto (remote).
    folders, files, and local tools live.
 2. **Local-data requests always hit the inbox.** Reading any private folder is
    non-allow-listable — the locked Auto-handle guardrail. Never silent.
+3. **The TEE owns the buffer.** A request may wait on the local Electron app / CLI / MCP
+   bridge, but it is never stored only there. The CVM task store is the durable inbox,
+   outbox, retry ledger, and audit trail.
 
 The policy lives in `assist-remote` (`inbox.ts`): auto-respond vs `input-required`, driven by
 the owner's **Connections** + **Auto-handle** preferences. v1 default allow-list is empty →
@@ -246,6 +277,7 @@ everything needs the human until the owner opts specific things in.
 | Onboarding agent-log digest | Edge → **CVM** (redacted) | Optional after claim; compacted 7-day agent-log history from the approved roots, not raw logs or broad folder access. |
 | Onboarding knowledge corpus | **CVM** `/data/knowledge.json` | Redacted prompt/output pairs used only for owner voice/style grounding in Quick Mode drafts. |
 | Local context slice for a request | Edge → **CVM** (redacted) | Only the minimal redacted slice needed to draft; on explicit in-the-moment approval. |
+| Deep Mode MCP/tool result | Edge → **CVM** (redacted or task-scoped output) | Produced locally after approval; attached to the durable task before any provider/user flow continues. |
 | Notes/docs in "what it knows" | Synced into **CVM** (redacted) | So the assistant can draft from them anytime, asleep or awake. |
 | Assistant identity + keys | **CVM** | TEE-derived. |
 | Owner credential | **Edge** | Ed25519 key in OS keychain where possible (macOS Keychain via `security`), else `~/.alignos/owner.key` mode `0600`. Public key registered with `assist-remote`. |
@@ -302,6 +334,11 @@ possible and keeps `assist-remote` a separate process.
 append to `/data/events.jsonl`; peer discovery snapshots write to `/data/peers.json`.
 `decisions.jsonl` stays on the edge.
 
+The persisted queue covers inbound requests, owner-originated provider requests, pending
+provider responses, approval-required tasks, Deep Mode local-context/tool requests, and
+retry/outbox state. The edge may cache for speed, but it is never the only holder of a
+request.
+
 **Persisted state — `assist-client`:** config (non-secret) in `~/.alignos/config.json`;
 owner private key in OS keychain or `~/.alignos/owner.key` (`0600`); `inbox.json`,
 `decisions.jsonl`, `scope.json` in `~/.alignos/`. No combined `.alignosrc`.
@@ -317,6 +354,7 @@ alignos followup <id> --msg=-          # instruction on stdin; assistant re-draf
 alignos decline <id> [--note]          # refuse
 alignos ask --mode quick <question>    # TEE answer from synced notes + log memory
 alignos ask --mode deep <question>     # local execution; prompts for scoped access as needed
+alignos mcp                            # local MCP bridge for Deep Mode tools
 alignos scope [list|allow|deny] <path> # local-data folders / approved agent-log roots
 alignos serve                          # run the edge bridge headless (no window)
 ```
@@ -351,6 +389,25 @@ peer's assistant ──message/send──► assist-remote
                                        │                              │
                               reply ──A2A──► asker   ────────────────►│ append decisions.jsonl
 ```
+
+Owner-originated provider request lifecycle:
+
+```
+assist-client / CLI / MCP bridge
+  ──signed owner request──► owner assist-remote
+                              │ create durable task + outbox entry
+                              ▼
+                         provider assist-remote / A2A endpoint
+                              │ response, follow-up, or needs-human state
+                              ▼
+                         owner assist-remote task store
+                              │
+                              └──► Inbox / handled list when assist-client reconnects
+```
+
+Quick Mode tasks may run to completion while the local client is offline. Deep Mode tasks
+stop at `auth-required` / `input-required` until the Electron app, CLI, or MCP bridge is
+online and the owner approves scoped local work.
 
 Envelope around a `Task`:
 ```js

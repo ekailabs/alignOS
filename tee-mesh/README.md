@@ -25,6 +25,10 @@ exchanging A2A-style **agent cards** plus how to connect to them. Trusted-setup 
   onboarding knowledge to `/data/knowledge.json`. This includes requests handled for other
   users. Raw local agent logs are not mounted into the TEE; only
   redacted/compacted onboarding or Deep Mode slices are sent across.
+- **TEE-owned inbox buffer.** Requests never depend on the Electron app being live. Quick
+  Mode runs in the owner's TEE. Deep Mode creates a durable `auth-required` / `input-required`
+  task in the owner's TEE and waits there until the local Electron app, CLI, or MCP bridge
+  reconnects and the owner approves scoped local work.
 
 ## Node HTTP surface
 - `GET /.well-known/agent-card.json` — this node's aggregated node card
@@ -33,7 +37,11 @@ exchanging A2A-style **agent cards** plus how to connect to them. Trusted-setup 
 - `GET /services` — the service directory: every known owner assistant, its owner handle,
   `ask-{owner}` endpoint, owner-auth endpoint, Quick Mode URL, and Deep Mode handoff URL
 - `GET|POST /ask-<owner>?mode=quick|deep` — owner-specific ask endpoint. Demo examples:
-  `/ask-albi?mode=quick`, `/ask-andrew?mode=quick`, `/ask-shashank?mode=deep`.
+  `/ask-albi?mode=quick`, `/ask-andrew?mode=quick`, `/ask-shashank?mode=deep`. Quick Mode
+  executes in the TEE; Deep Mode buffers an inbox task for the owner's local client.
+- `POST /owner/request` — owner-authenticated provider request. The local client asks the
+  owner's TEE to create a durable task, forward to a provider TEE / A2A endpoint, and store
+  the provider response back in the owner's task store.
 - `POST /gossip` — merge a pushed directory (pull is the default path)
 - `GET /quote?report_data=…` — dstack quote (public verifier surface)
 - `ALL /agents/<name>/*` — reverse-proxy to a local agent
@@ -55,8 +63,8 @@ liveness + `mode=tee`, and a live "ask the mesh" box. Routing fans across CVMs: 
 `curl <any>/peers` shows all three raw nodes; `curl <any>/services` shows the owner-bound
 assistant services. For the demo instantiation, the three services are Albi, Andrew, and
 Shashank. Each service advertises `/ask-albi`, `/ask-andrew`, or `/ask-shashank` with a
-`mode=quick|deep` parameter. Quick Mode runs through the TEE; Deep Mode hands off to the
-owner's local `assist-client`.
+`mode=quick|deep` parameter. Quick Mode runs through the TEE; Deep Mode buffers a durable
+task in the owner's TEE until the local `assist-client` can run it.
 
 ## Run the local 3-node mesh (anvil, no docker/TEE)
 ```bash
