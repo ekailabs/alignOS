@@ -99,6 +99,11 @@ sequenceDiagram
 *executing in your exact local setup* (your harness, your skills, your files), read-only, with you
 approving the result before it ships.
 
+<div align="center">
+<img src="docs/assets/deep-mode-local-draft.png" alt="Deep Mode review: a reply drafted locally by Claude in your workspace, with Redraft, Reject, Follow up, and Approve and send." width="760">
+<br><em>Deep Mode, running for real: your local agent (here, Claude) drafts the reply read-only in your workspace, and nothing is sent until you approve.</em>
+</div>
+
 ---
 
 ## The privacy guarantee, stated precisely
