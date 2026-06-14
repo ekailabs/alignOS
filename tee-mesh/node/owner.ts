@@ -45,9 +45,14 @@ export function ownerState() {
   return { claimed: !!ownerKey };
 }
 
-// Trust-on-first-use: the first client to claim binds its key. Re-claim by the same key is
-// idempotent (reconnects work); a different key is rejected once claimed.
-export function claim(pubkeyB64: string): { ok: boolean; error?: string } {
+const seenNonces = new Map<string, number>();
+
+// URL-only demo setup: connecting binds this node to the local client key. Re-claiming with
+// the same key is idempotent; a different key repairs stale owner state from an older device
+// or app install by rebinding the node.
+export function claim(
+  pubkeyB64: string,
+): { ok: boolean; error?: string; rebound?: boolean } {
   let pk: Uint8Array;
   try {
     pk = b64urlToBytes(pubkeyB64);
@@ -56,16 +61,19 @@ export function claim(pubkeyB64: string): { ok: boolean; error?: string } {
   }
   if (pk.length !== 32) return { ok: false, error: "bad pubkey length" };
   if (ownerKey) {
-    return eq(ownerKey, pk) ? { ok: true } : { ok: false, error: "already claimed by another device" };
+    if (eq(ownerKey, pk)) return { ok: true };
+    seenNonces.clear();
   }
   ownerKey = pk;
   try {
-    Deno.writeTextFileSync(STATE_PATH, JSON.stringify({ ownerPubHex: hex(pk) }));
+    Deno.writeTextFileSync(
+      STATE_PATH,
+      JSON.stringify({ ownerPubHex: hex(pk) }),
+    );
   } catch { /* in-memory only */ }
-  return { ok: true };
+  return { ok: true, rebound: true };
 }
 
-const seenNonces = new Map<string, number>();
 function rememberNonce(n: string) {
   seenNonces.set(n, Date.now());
   if (seenNonces.size > 5000) {

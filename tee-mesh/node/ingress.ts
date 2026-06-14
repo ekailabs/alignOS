@@ -103,7 +103,9 @@ export function makeHandler(ctx: IngressCtx) {
       return handleA2A(a2a, await req.text(), false);
     }
     if (p === "/owner/claim" && req.method === "POST") {
-      const { pubkey } = await req.json().catch(() => ({})) as { pubkey?: string };
+      const { pubkey } = await req.json().catch(() => ({})) as {
+        pubkey?: string;
+      };
       return Response.json(claim(pubkey ?? ""));
     }
     if (p === "/owner/a2a" && req.method === "POST") {

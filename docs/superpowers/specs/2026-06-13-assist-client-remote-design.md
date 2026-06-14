@@ -37,10 +37,10 @@ charge."*
   drafts a reply → it surfaces in the inbox → owner Approves / Follows up / Declines → the
   reply returns to the asker.
 - Real mesh participation: `assist-remote` is a genuine A2A agent in `tee-mesh`.
-- **Connect** to an *already-running* private space via a one-time setup token (no key
-  pasting after claim).
+- **Connect** to an *already-running* private space via its gateway URL (no key or token
+  pasting).
 - **Demo assumption:** the operator has already provisioned the TEE machines; onboarding
-  starts from gateway URLs + setup tokens, not from provisioning.
+  starts from gateway URLs, not from provisioning.
 - **Onboarding memory:** after claim, offer to seed the remote node with a redacted,
   compacted 7-day agent-log digest from `~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`,
   `~/.opencode`, and `~/.hermes`.
@@ -97,7 +97,7 @@ and CLI are **clients** to it over an owner-authenticated channel (§5).
 
 **Operator-provisioned, owner-claimed.** The infrastructure operator may provision a pool of
 TEE/CVM instances ahead of time, but does not become the long-term assistant owner. Each
-running instance is claimed by one human owner through the setup-token flow (§11), and owner
+running instance is claimed by one human owner through the URL-only claim flow (§11), and owner
 routes are then bound to that owner's local key.
 
 Example starting point:
@@ -278,7 +278,7 @@ possible and keeps `assist-remote` a separate process.
 | `src/redact.js` | Deterministic secret scrubber — pure, never throws. | new |
 | `src/agent-logs.js` | Read + compact `~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`, `~/.opencode`, and `~/.hermes` into a redacted slice for grounding. | new |
 | `src/edge-reader.js` | For a local-data request: gather the scoped slice (`scope` + `redact` + `agent-logs`) and hand it to `assist-remote`. | new |
-| `src/identity.js` | Generate owner keypair; claim with the setup token; store key (keychain/`0600`); sign requests. | new |
+| `src/identity.js` | Generate owner keypair; claim the URL-bound private space; store key (keychain/`0600`); sign requests. | new |
 | `src/setup.js` | v1 connect flow: validate gateway URL + token, claim ownership, persist config, report health. | new |
 | `src/main.js` | Electron main; thin `ipcMain` handlers. | new |
 | `src/preload.js` | contextBridge — only renderer↔main surface (`window.alignos.*`). | new |
@@ -293,7 +293,7 @@ possible and keeps `assist-remote` a separate process.
 | `node/inbox.ts` (new) | Task store on **Deno KV** (durable, no dep), needs-human policy, human-review queue, SSE feed. |
 | `node/draft.ts` (new) | Draft/redraft the reply `Artifact` via a **model API call from inside the CVM** (our own prompt-assembly + a model API call from inside the CVM). |
 | `node/knowledge.ts` (new) | Store synced notes/docs the assistant draws on. |
-| `node/owner.ts` (new) | Owner-auth verification (envelope §5) + setup-token mint/claim (§11). |
+| `node/owner.ts` (new) | Owner-auth verification (envelope §5) + URL-only owner claim (§11). |
 | `node/ingress.ts` (edit) | Mount A2A + owner-authenticated routes (`tasks/list`, resolve turns, SSE); keep public mesh routes separate. |
 | `node/cards.ts` (edit) | Declare the owner `securityScheme` on the card. |
 
@@ -323,7 +323,7 @@ alignos serve                          # run the edge bridge headless (no window
 
 **Runtimes:** `assist-client` = Node/Electron; `assist-remote` = Deno. Clean HTTP boundary.
 
-**Multi-device:** v1 is **single-device** — the setup token binds exactly one owner key.
+**Multi-device:** v1 is **single-device** — URL setup binds the node to the local owner key.
 Named/revocable keys and per-device registration are deferred.
 
 ---
@@ -405,7 +405,7 @@ later layer on the same connect path.
 1. For the demo, the node is already deployed by an operator via existing `tee-mesh` paths:
    local dev `scripts/local-test.sh` (anvil; defaults to `http://localhost:8080`), or
    `npx phala deploy` once by hand for a real CVM.
-2. First launch → enter the gateway URL + a **one-time setup token** the node prints at boot.
+2. First launch → enter the gateway URL for the private space.
 3. `assist-client` generates an owner keypair and claims ownership with the token.
 4. After a successful claim, `assist-client` offers to use recent local agent logs from
    `~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`, `~/.opencode`, and `~/.hermes`
