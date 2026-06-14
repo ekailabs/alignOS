@@ -11,11 +11,17 @@ const MOCK = (() => {
     { id: 't2', from: { display: "Devon's assistant" }, status: { state: 'input-required', timestamp: new Date(Date.now() - 840000).toISOString() },
       history: [{ role: 'user', parts: [{ kind: 'text', text: "What's your availability for a 30-min sync Thursday?" }] }],
       artifacts: [{ parts: [{ kind: 'text', text: 'Thursday afternoon works — 2pm or 3:30pm your time. Want me to send an invite?' }] }] },
+    { id: 'h1', from: { display: "Priya's assistant" }, status: { state: 'completed', timestamp: new Date(Date.now() - 5400000).toISOString() },
+      history: [{ role: 'user', parts: [{ kind: 'text', text: 'Do you approve reusing your onboarding checklist?' }] }],
+      artifacts: [{ parts: [{ kind: 'text', text: 'Yes — go ahead and reuse it. Ping me if you adapt the security section.' }] }] },
+    { id: 'h2', from: { display: "Sam's assistant" }, status: { state: 'canceled', timestamp: new Date(Date.now() - 9000000).toISOString() },
+      history: [{ role: 'user', parts: [{ kind: 'text', text: 'Can you forward the investor deck?' }] }], artifacts: [] },
   ];
   return {
     bootstrap: async () => ({ connected: true, url: 'demo' }),
     setup: async () => ({ ok: true }),
     inbox: async () => tasks.filter((t) => ['input-required', 'auth-required'].includes(t.status.state)),
+    handled: async () => tasks.filter((t) => ['completed', 'canceled', 'rejected'].includes(t.status.state)),
     show: async (id) => tasks.find((t) => t.id === id),
     approve: async (id) => { const t = tasks.find((t) => t.id === id); t.status.state = 'completed'; return t; },
     followup: async (id) => tasks.find((t) => t.id === id),
@@ -37,7 +43,8 @@ const ago = (iso) => {
   return Math.floor(s / 86400) + 'd';
 };
 
-const SECTIONS = ['loading', 'connect', 'inbox', 'allclear', 'review', 'prefs', 'error'];
+const SECTIONS = ['loading', 'connect', 'inbox', 'allclear', 'review', 'handled', 'prefs', 'error'];
+const OUTCOME = { completed: 'Sent', canceled: 'Declined', rejected: 'Declined' };
 function setView(v) {
   for (const s of SECTIONS) $(s).hidden = s !== v;
   $('head').hidden = (v === 'loading' || v === 'connect');
@@ -59,7 +66,9 @@ async function boot() {
 
 // Deep-link to a specific request, e.g. from a notification: index.html#open=<taskId>
 function openFromHash() {
-  const m = (location.hash || '').match(/^#open=(.+)/);
+  const h = location.hash || '';
+  if (h === '#handled') return loadHandled();
+  const m = h.match(/^#open=(.+)/);
   if (m) openReview(decodeURIComponent(m[1]));
 }
 
@@ -83,6 +92,26 @@ async function loadInbox() {
   } catch (e) { fail(e.message); }
 }
 
+async function loadHandled() {
+  try {
+    const tasks = await api.handled();
+    setView('handled');
+    const ul = $('handled-list'); ul.innerHTML = '';
+    $('handled-empty').hidden = tasks.length > 0;
+    for (const t of tasks) {
+      const who = (t.from && t.from.display) || 'someone';
+      const out = OUTCOME[t.status.state] || t.status.state;
+      const li = document.createElement('li');
+      li.className = 'row';
+      li.innerHTML = `<span class="av">${esc(initial(who))}</span><span class="rmain">` +
+        `<span class="rtop"><span class="who">${esc(who)}</span><span class="ago">${esc(out)} · ${esc(ago(t.status.timestamp))}</span></span>` +
+        `<span class="ask">${esc(text(t.history && t.history[0] && t.history[0].parts))}</span></span>`;
+      li.addEventListener('click', () => openReview(t.id));
+      ul.appendChild(li);
+    }
+  } catch (e) { fail(e.message); }
+}
+
 async function openReview(id) {
   try {
     const t = await api.show(id); current = t;
@@ -91,10 +120,20 @@ async function openReview(id) {
     $('rv-age').textContent = ago(t.status.timestamp);
     $('rv-chip').hidden = false; // v1: every known peer shows as a connection
     $('rv-ask').textContent = text(t.history && t.history[0] && t.history[0].parts);
-    $('rv-draft').textContent = text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts) || '(no draft yet)';
-    $('rv-prov').textContent = 'Drafted in your private space. Raw local files weren’t sent.';
-    $('rv-consequence').innerHTML = `Approving <b>sends this reply to ${esc(who)}</b>.`;
     $('rv-compose').hidden = true; $('rv-compose-text').value = ''; $('rv-followup').classList.remove('on');
+
+    const terminal = ['completed', 'canceled', 'rejected'].includes(t.status.state);
+    $('rv-actions').hidden = terminal;
+    if (terminal) {
+      const sent = t.status.state === 'completed';
+      $('rv-draft').textContent = sent ? (text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts) || '(no reply)') : '(declined — nothing was sent)';
+      $('rv-prov').textContent = '';
+      $('rv-consequence').innerHTML = `<b>${sent ? 'Sent ✓' : 'Declined'}</b> · ${esc(ago(t.status.timestamp))}`;
+    } else {
+      $('rv-draft').textContent = text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts) || '(no draft yet)';
+      $('rv-prov').textContent = 'Drafted in your private space. Raw local files weren’t sent.';
+      $('rv-consequence').innerHTML = `Approving <b>sends this reply to ${esc(who)}</b>.`;
+    }
     setView('review');
   } catch (e) { fail(e.message); }
 }
@@ -107,6 +146,9 @@ function wire() {
     catch (e) { $('connect-err').textContent = e.message; $('connect-err').hidden = false; }
   });
   $('open-inbox').addEventListener('click', loadInbox);
+  $('open-handled').addEventListener('click', loadHandled);
+  $('allclear-handled').addEventListener('click', loadHandled);
+  $('handled-back').addEventListener('click', loadInbox);
   $('open-prefs').addEventListener('click', () => setView('prefs'));
   $('prefs-back').addEventListener('click', loadInbox);
   $('rv-back').addEventListener('click', loadInbox);

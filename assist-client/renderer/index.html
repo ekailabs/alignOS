@@ -16,6 +16,7 @@
       <span class="head-right">
         <span class="pill" id="priv">Private</span>
         <button class="link" id="open-inbox">Inbox</button>
+        <button class="link" id="open-handled">Handled</button>
         <button class="link" id="open-prefs">Preferences</button>
       </span>
     </header>
@@ -52,6 +53,7 @@
       <div class="moon">☾</div>
       <h2>You're all caught up</h2>
       <p class="sub">Nothing needs your call right now. Your assistant will let you know.</p>
+      <button class="link" id="allclear-handled" style="margin-top:16px">See what's been handled →</button>
     </section>
 
     <!-- REVIEW -->
@@ -71,11 +73,20 @@
       </div>
 
       <div class="consequence" id="rv-consequence"></div>
-      <div class="actions">
+      <div class="actions" id="rv-actions">
         <button class="btn ghost" id="rv-decline">Decline</button>
         <button class="btn outline" id="rv-followup">Follow up</button>
         <button class="btn primary" id="rv-approve">Approve &amp; send</button>
       </div>
+    </section>
+
+    <!-- HANDLED (history) -->
+    <section class="card inbox" id="handled" hidden>
+      <button class="link back" id="handled-back">← Inbox</button>
+      <h1 class="ihead">Handled</h1>
+      <p class="isub">What your assistant has sent or declined — with you in the loop.</p>
+      <ul class="list" id="handled-list"></ul>
+      <p class="sub" id="handled-empty" hidden>Nothing handled yet.</p>
     </section>
 
     <!-- PREFERENCES (Connections + Auto-handle wired in a later slice) -->

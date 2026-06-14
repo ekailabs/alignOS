@@ -23,6 +23,8 @@ async function rpc(method, params, { owner = false, url } = {}) {
 // owner surface
 const inbox = (status = ['input-required', 'auth-required']) =>
   rpc('tasks/list', { status }, { owner: true });
+const handled = (status = ['completed', 'canceled', 'rejected']) =>
+  rpc('tasks/list', { status }, { owner: true });
 const getTask = (id) => rpc('tasks/get', { id }, { owner: true });
 const approve = (taskId) =>
   rpc('message/send', { message: { role: 'user', parts: [], messageId: rid(), taskId } }, { owner: true });
@@ -35,4 +37,4 @@ const decline = (taskId, note) =>
 const peerAsk = (text, display, url) =>
   rpc('message/send', { message: { role: 'user', parts: [{ kind: 'text', text }], messageId: rid() }, from: { display } }, { url });
 
-module.exports = { rpc, rid, inbox, getTask, approve, followup, decline, peerAsk };
+module.exports = { rpc, rid, inbox, handled, getTask, approve, followup, decline, peerAsk };

@@ -28,6 +28,7 @@ app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) creat
 ipcMain.handle('bootstrap', async () => { const c = cfg.load(); return { connected: !!c.url, url: c.url || '' }; });
 ipcMain.handle('setup', async (_e, { url }) => { cfg.save({ url: String(url).replace(/\/$/, '') }); return { ok: true }; });
 ipcMain.handle('inbox', async () => mc.inbox());
+ipcMain.handle('handled', async () => mc.handled());
 ipcMain.handle('show', async (_e, { id }) => mc.getTask(id));
 ipcMain.handle('approve', async (_e, { id }) => { const t = await mc.approve(id); store.record({ taskId: id, verdict: 'approve' }); return t; });
 ipcMain.handle('followup', async (_e, { id, msg }) => { const t = await mc.followup(id, msg); store.record({ taskId: id, verdict: 'followup', instruction: msg }); return t; });
