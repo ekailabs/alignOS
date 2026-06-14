@@ -1,4 +1,4 @@
-# tee-mesh — the AlignOS TEE node (`assist-remote`)
+# tee-mesh: the AlignOS TEE node (`assist-remote`)
 
 > **New here?** Start with the [project README](../README.md) and
 > [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) for the whole system, or
@@ -7,13 +7,13 @@
 > [DEPLOY.md](DEPLOY.md).
 
 A mesh of dstack TEE CVMs. Each node hosts isolated agent containers **and** meshes with
-the other nodes, so every CVM is aware of every other CVM and the agents it runs —
+the other nodes, so every CVM is aware of every other CVM and the agents it runs,
 exchanging A2A-style **agent cards** plus how to connect to them. Trusted-setup PoC.
 
 ## How it works
 
 - **Membership = on-chain** (`contracts/AlignRegistry.sol`). Each node self-registers
-  `(node_id, pubkey, codeId, gatewayUrl)` at boot, so the contract is the seed list — no
+  `(node_id, pubkey, codeId, gatewayUrl)` at boot, so the contract is the seed list, no
   hand-edited peer file, no deploy-order coupling. Unlike TEEBridge/ERC-733 it stores the
   gateway URL, which is what lets peers actually dial each other.
 - **Discovery = HTTP gossip over the gateway** (`node/gossip.ts`). Each node pulls every
@@ -21,7 +21,7 @@ exchanging A2A-style **agent cards** plus how to connect to them. Trusted-setup 
   (last-write-wins by `version`, tombstones for deletes, `last_seen` liveness, backoff+jitter).
 - **Identity = the dstack socket** (`node/identity.ts`). `node_id = keccak(app_id:instance_id)`
   (unique even across replicas sharing an app_id); pubkey derived from `GetKey`; quote from
-  `GetQuote`. Falls back to local-dev identity when no socket — boot is never blocked on KMS.
+  `GetQuote`. Falls back to local-dev identity when no socket, boot is never blocked on KMS.
 - **Agents = sibling containers** on an `internal` docker network. The node reverse-proxies
   `/agents/<name>/*` to them and is their sole egress; cross-CVM calls go node→node over the
   gateway. The node does not hold the docker socket.
@@ -37,23 +37,23 @@ exchanging A2A-style **agent cards** plus how to connect to them. Trusted-setup 
   reconnects and the owner approves scoped local work.
 
 ## Node HTTP surface
-- `GET /.well-known/agent-card.json` — this node's aggregated node card
-- `GET /.well-known/alignos-service.json` — this node projected as an owner-bound assistant service
-- `GET /peers` — the full directory (every known node card)
-- `GET /services` — the service directory: every known owner assistant, its owner handle,
+- `GET /.well-known/agent-card.json`, this node's aggregated node card
+- `GET /.well-known/alignos-service.json`, this node projected as an owner-bound assistant service
+- `GET /peers`, the full directory (every known node card)
+- `GET /services`, the service directory: every known owner assistant, its owner handle,
   `ask-{owner}` endpoint, owner-auth endpoint, Quick Mode URL, and Deep Mode handoff URL
-- `GET|POST /ask-<owner>?mode=quick|deep` — owner-specific ask endpoint. Demo examples:
+- `GET|POST /ask-<owner>?mode=quick|deep`, owner-specific ask endpoint. Demo examples:
   `/ask-albi?mode=quick`, `/ask-andrew?mode=quick`, `/ask-shashank?mode=deep`. Quick Mode
   executes in the TEE; Deep Mode buffers an inbox task for the owner's local client.
-- `POST /owner/request` — owner-authenticated provider request. The local client asks the
+- `POST /owner/request`, owner-authenticated provider request. The local client asks the
   owner's TEE to create a durable task, forward to a provider TEE / A2A endpoint, and store
   the provider response back in the owner's task store.
-- `POST /gossip` — merge a pushed directory (pull is the default path)
-- `GET /quote?report_data=…` — dstack quote (public verifier surface)
-- `ALL /agents/<name>/*` — reverse-proxy to a local agent
-- `POST /route {question}` — score the question against every skill across the mesh and
+- `POST /gossip`, merge a pushed directory (pull is the default path)
+- `GET /quote?report_data=…`, dstack quote (public verifier surface)
+- `ALL /agents/<name>/*`, reverse-proxy to a local agent
+- `POST /route {question}`, score the question against every skill across the mesh and
   forward to the best agent (possibly on another CVM); returns `{routed_to, answer, candidates}`
-- `GET /dashboard` — demo-day mesh visualization (nodes → isolated skills + live ask box)
+- `GET /dashboard`, demo-day mesh visualization (nodes → isolated skills + live ask box)
 
 ## Live deployment (prod7, Phala KMS)
 A 3-node mesh is running on `dstack-pha-prod7`, registry on Ethereum Sepolia
@@ -67,7 +67,7 @@ All three live demo nodes are deployed on the Codex-backed node image
 Codex auth at boot from `CODEX_AUTH_JSON_B64` into the `/data` volume; do not commit that
 env value.
 
-**Demo dashboard**: open `<any node>/dashboard` — shows every node, its isolated agents/skills,
+**Demo dashboard**: open `<any node>/dashboard`, shows every node, its isolated agents/skills,
 liveness + `mode=tee`, and a live "ask the mesh" box. Routing fans across CVMs: ask
 `how should we find PMF?` / `how does remote attestation work in a TEE?` /
 `how should we design the agent routing layer?` and watch each land on the right node.
