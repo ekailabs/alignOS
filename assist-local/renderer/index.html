@@ -125,6 +125,10 @@
       <div class="inbox-ask" id="inbox-ask">
         <div class="inbox-ask-row">
           <input id="inbox-ask-author" placeholder="Author name" autocomplete="off" spellcheck="false" />
+          <span class="mode-toggle" id="inbox-ask-mode" role="group" aria-label="Answer mode">
+            <button type="button" class="mode-seg quick on" data-mode="quick">Quick</button>
+            <button type="button" class="mode-seg deep" data-mode="deep">Deep</button>
+          </span>
           <button class="btn small primary" id="inbox-ask-send">Ask →</button>
         </div>
         <textarea id="inbox-ask-text" rows="2" placeholder="Ask anyone in the mesh…"></textarea>
@@ -148,7 +152,11 @@
     <!-- ASK A KNOWN AGENT -->
     <section class="card review" id="ask" hidden>
       <button class="link back" id="ask-back">← Known Agents</button>
-      <div class="rv-from">Ask <b id="ask-who">—</b> <span class="chip" id="ask-mode">quick mode</span></div>
+      <div class="rv-from">Ask <b id="ask-who">—</b>
+        <span class="mode-toggle" id="ask-mode-toggle" role="group" aria-label="Answer mode">
+          <button type="button" class="mode-seg quick on" data-mode="quick">Quick</button>
+          <button type="button" class="mode-seg deep" data-mode="deep">Deep</button>
+        </span></div>
       <div class="agent-desc" id="ask-desc" hidden></div>
       <div class="compose" id="ask-compose">
         <div class="ch">Your question</div>

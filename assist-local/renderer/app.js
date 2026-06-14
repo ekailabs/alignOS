@@ -494,7 +494,7 @@ function renderServiceCard(service) {
   const modes = service.capabilities && Array.isArray(service.capabilities.modes) ? service.capabilities.modes : [];
   const desc = agentDesc(service);
   const handle = (owner.handle || name || '').toLowerCase();
-  return `<li class="agent-card-item" data-ask="${esc(handle)}" data-name="${esc(name)}">
+  return `<li class="agent-card-item" data-ask="${esc(handle)}" data-name="${esc(name)}" data-modes="${esc(modes.join(','))}">
     <div class="agent-card-top">
       ${avatarTag(name, owner.handle)}
       <span class="agent-card-title"><b>${esc(name)}</b></span>
@@ -562,12 +562,37 @@ function taskReplyText(res) {
   if (res.reply || res.answer) return res.reply || res.answer;
   return '';
 }
-function openAsk(handle, name, desc) {
+// Ask-mode picker (Quick/Deep): mode lives in the DOM — the .mode-seg carrying .on.
+function readMode(el) {
+  const on = el && el.querySelector('.mode-seg.on');
+  return (on && on.getAttribute('data-mode')) || 'quick';
+}
+function setMode(el, mode) {
+  if (!el) return;
+  el.querySelectorAll('.mode-seg').forEach((seg) => seg.classList.toggle('on', seg.getAttribute('data-mode') === mode));
+}
+function wireModeToggle(el) {
+  if (!el) return;
+  el.addEventListener('click', (e) => {
+    const seg = e.target.closest('.mode-seg');
+    if (!seg || seg.disabled || !el.contains(seg)) return;
+    el.querySelectorAll('.mode-seg').forEach((s) => s.classList.toggle('on', s === seg));
+  });
+}
+
+function openAsk(handle, name, desc, modes) {
   _askTarget = { handle, name: name || handle };
   $('ask-who').textContent = _askTarget.name;
   $('ask-desc').textContent = desc || '';
   $('ask-desc').hidden = !desc;
   $('ask-text').value = '';
+  // Reset the picker to Quick; only offer Deep when the provider advertises it.
+  const toggle = $('ask-mode-toggle');
+  const supportsDeep = Array.isArray(modes) && modes.includes('deep');
+  const deepSeg = toggle.querySelector('.mode-seg.deep');
+  deepSeg.disabled = !supportsDeep;
+  deepSeg.title = supportsDeep ? '' : 'Deep mode not supported by this assistant';
+  setMode(toggle, 'quick');
   $('ask-reply').hidden = true; $('ask-reply-lbl').hidden = true; $('ask-prov').hidden = true;
   setView('ask');
   $('ask-text').focus();
@@ -576,15 +601,22 @@ async function sendAsk() {
   const q = $('ask-text').value.trim();
   if (!q || !_askTarget) return;
   const btn = $('ask-send');
+  const mode = readMode($('ask-mode-toggle'));
   btn.disabled = true; btn.textContent = 'Asking…';
   try {
-    const res = await api.askProvider({ question: q, mode: 'quick', owner: _askTarget.handle });
+    const res = await api.askProvider({ question: q, mode, owner: _askTarget.handle });
+    // The node returns HTTP 200 with a failed task when the provider errored or timed out;
+    // show that as an error and drop the "answered by" provenance — nothing was answered.
+    const failed = !!(res && res.status && res.status.state === 'failed');
     const reply = taskReplyText(res);
-    $('ask-reply').textContent = reply || `Sent to ${_askTarget.name}. Their assistant is drafting a reply. Check back shortly.`;
-    $('ask-reply').classList.toggle('ask-reply-empty', !reply);
+    $('ask-reply').textContent = reply || (failed
+      ? `${_askTarget.name} couldn’t answer right now.`
+      : `Sent to ${_askTarget.name}. Their assistant is drafting a reply. Check back shortly.`);
+    $('ask-reply').classList.toggle('ask-reply-empty', !reply && !failed);
+    $('ask-reply').classList.toggle('error', failed);
     $('ask-reply').hidden = false; $('ask-reply-lbl').hidden = false;
-    $('ask-prov').textContent = `Answered by ${_askTarget.name}’s assistant in quick mode, inside their private space.`;
-    $('ask-prov').hidden = false;
+    $('ask-prov').hidden = failed;
+    if (!failed) $('ask-prov').textContent = `Answered by ${_askTarget.name}’s assistant in ${mode} mode, inside their private space.`;
   } catch (e) {
     $('ask-reply').textContent = `Couldn’t reach ${_askTarget.name}: ${(e && e.message) || e}`;
     $('ask-reply').classList.add('ask-reply-empty');
@@ -602,7 +634,7 @@ async function sendInboxAsk() {
   btn.disabled = true; btn.textContent = 'Asking…';
   box.hidden = true; box.classList.remove('error');
   try {
-    const payload = { question: q, mode: 'quick' };
+    const payload = { question: q, mode: readMode($('inbox-ask-mode')) };
     if (owner) payload.owner = owner;
     const res = await api.askProvider(payload);
     const reply = taskReplyText(res);
@@ -710,11 +742,15 @@ function wire() {
   $('cards-back').addEventListener('click', loadInbox);
   $('cards-service-list').addEventListener('click', (e) => {
     const item = e.target.closest('[data-ask]'); if (!item) return;
-    const desc = (item.closest('.agent-card-item') || item).querySelector('.agent-desc');
-    openAsk(item.getAttribute('data-ask'), item.getAttribute('data-name'), desc ? desc.textContent : '');
+    const card = item.closest('.agent-card-item') || item;
+    const desc = card.querySelector('.agent-desc');
+    const modes = (card.getAttribute('data-modes') || '').split(',').filter(Boolean);
+    openAsk(item.getAttribute('data-ask'), item.getAttribute('data-name'), desc ? desc.textContent : '', modes);
   });
   $('ask-back').addEventListener('click', loadAgentCards);
   $('ask-send').addEventListener('click', sendAsk);
+  wireModeToggle($('ask-mode-toggle'));
+  wireModeToggle($('inbox-ask-mode'));
   $('allclear-handled').addEventListener('click', loadHistory);
   $('open-prefs').addEventListener('click', openPrefs);
   $('prefs-reconnect').addEventListener('click', async () => {

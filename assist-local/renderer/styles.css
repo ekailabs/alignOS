@@ -173,6 +173,7 @@ body.onb .setup{padding:48px 36px}
 .profile-head b{font-size:15px}
 .profile-handle{display:block;margin-top:2px;color:var(--faint);font-family:var(--mono);font-size:11px}
 .ask-reply-empty{color:var(--muted)}
+#ask-reply.error{color:var(--danger)}
 .cards-loading{list-style:none;text-align:center;padding:12px}
 .tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
 .tag{font-family:var(--mono);font-size:10.5px;color:var(--accent);border:1px solid var(--line);border-radius:999px;padding:3px 7px;background:var(--accent-soft)}
@@ -192,6 +193,13 @@ body.onb .setup{padding:48px 36px}
 .mode-tag{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 7px;white-space:nowrap;flex:none}
 .mode-tag.quick{color:var(--green);background:var(--green-soft)}
 .mode-tag.deep{color:var(--accent);background:var(--accent-soft)}
+/* Quick/Deep ask-mode picker: segmented pill, reuses mode-tag color language */
+.mode-toggle{display:inline-flex;align-items:center;gap:2px;flex:none;border:1px solid var(--line-2);border-radius:999px;padding:2px;background:#fff}
+.mode-seg{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;border:none;background:none;color:var(--muted);border-radius:999px;padding:3px 9px;line-height:1.4;cursor:pointer;transition:background .15s,color .15s}
+.mode-seg:hover:not(.on):not([disabled]){color:var(--ink)}
+.mode-seg.quick.on{color:var(--green);background:var(--green-soft)}
+.mode-seg.deep.on{color:var(--accent);background:var(--accent-soft)}
+.mode-seg[disabled]{color:var(--faint);cursor:not-allowed;opacity:.6}
 .dchip{font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:2px 7px;white-space:nowrap}
 .dchip.ready{color:var(--green);background:var(--green-soft)}
 .dchip.drafting{color:#8A6D1F;background:#F6EFD6}
