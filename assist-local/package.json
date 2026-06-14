@@ -1,5 +1,5 @@
 {
-  "name": "assist-client",
+  "name": "assist-local",
   "version": "0.1.0",
   "description": "alignOS Assist — the human's local client (CLI + Electron app). Standalone.",
   "bin": { "alignos": "bin/alignos" },

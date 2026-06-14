@@ -2,7 +2,13 @@
 
 **Date:** 2026-06-14
 **Status:** Draft (awaiting review)
-**Scope:** `assist-client` only (Electron app + shared `src/` + CLI). No backend changes.
+**Scope:** `assist-local` only (Electron app + shared `src/` + CLI). No backend changes.
+
+> **What this enables — product impact.** This is **Deep Mode** drafting. Every incoming request
+> is answered by the owner's *own* local `claude` / `codex`, run **read-only** in their real
+> workspace, so a grounded draft is already waiting when they open the inbox — and raw local files
+> never leave the machine, only the reviewed reply does. **Status:** shipped — see
+> `assist-local/src/draft-loop.js` and `agent-runner.js`.
 
 ## Problem
 
@@ -12,10 +18,10 @@ request, and displays a **draft reply** that today comes from the remote (`task.
 
 Two gaps:
 
-1. **The deployed TEE node has no model.** The sibling spec
-   (`2026-06-14-tee-quick-mode-owner-style-loop-design.md`) verified that the live Phala node
-   ships without `claude`/`codex` installed and no API key, so its draft is a placeholder. The
-   owner's *laptop*, however, has `claude` / `codex` installed and the actual workspace files.
+1. **Quick Mode and Deep Mode have different grounding.** The sibling spec
+   (`quick-mode-style-loop-design.md`) now covers the live Codex-backed TEE path. The owner's
+   *laptop*, however, still has the actual workspace files and local tools, so Deep Mode needs
+   local `claude` / `codex` drafting for requests that require file access or explicit approval.
 2. **No local drafting exists.** `mesh-client.js` has `approve` / `followup` / `decline` but no
    way to generate a draft locally and surface it in the inbox.
 

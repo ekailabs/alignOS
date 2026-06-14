@@ -1,10 +1,8 @@
 # Local Agent Drafting for the Inbox — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** For every incoming `input-required` request, run the owner's local `claude` or `codex` CLI read-only in their workspace and fill the result into the inbox as an editable draft that gets sent on approve.
 
-**Architecture:** A background drafting loop in the Electron main process polls the inbox, calls a shared read-only CLI runner (cwd = the owner's workspace), and writes results to a local draft-overlay store (`~/.alignos/drafts.json`). The renderer shows the overlay draft, refreshes live on a `draft-updated` event, and sends the (possibly edited) draft text on approve. Fully contained in `assist-client`; no backend changes.
+**Architecture:** A background drafting loop in the Electron main process polls the inbox, calls a shared read-only CLI runner (cwd = the owner's workspace), and writes results to a local draft-overlay store (`~/.alignos/drafts.json`). The renderer shows the overlay draft, refreshes live on a `draft-updated` event, and sends the (possibly edited) draft text on approve. Fully contained in `assist-local`; no backend changes.
 
 **Tech Stack:** Node.js (CommonJS), Electron 33 (`ipcMain`/`preload` bridge), `child_process.spawn`, plain `node` assert tests. No new dependencies.
 
@@ -13,37 +11,37 @@
 ## File Structure
 
 **New files**
-- `assist-client/src/draft-store.js` — overlay persistence in `~/.alignos/drafts.json`.
-- `assist-client/src/agent-runner.js` — CLI detection + prompt build + read-only spawn.
-- `assist-client/src/draft-loop.js` — inbox sweep, bounded queue, per-task drafting.
-- `assist-client/test/draft-store.test.js`
-- `assist-client/test/agent-runner.test.js`
-- `assist-client/test/draft-loop.test.js`
-- `assist-client/test/mesh-approve.test.js`
+- `assist-local/src/draft-store.js` — overlay persistence in `~/.alignos/drafts.json`.
+- `assist-local/src/agent-runner.js` — CLI detection + prompt build + read-only spawn.
+- `assist-local/src/draft-loop.js` — inbox sweep, bounded queue, per-task drafting.
+- `assist-local/test/draft-store.test.js`
+- `assist-local/test/agent-runner.test.js`
+- `assist-local/test/draft-loop.test.js`
+- `assist-local/test/mesh-approve.test.js`
 
 **Modified files**
-- `assist-client/src/config.js` — add `agentConfig()` defaults helper.
-- `assist-client/src/mesh-client.js` — `approve(taskId, text)`.
-- `assist-client/src/main.js` — IPC handlers (`drafts`/`draft-get`/`redraft`), `approve` sends draft text, start the loop.
-- `assist-client/src/preload.js` — expose `drafts`/`draftGet`/`redraft`/`onDraftUpdated`, `approve(id, text)`.
-- `assist-client/renderer/app.js` — inbox chips, review editable draft, redraft, live refresh, MOCK.
-- `assist-client/renderer/index.html` — editable draft textarea + redraft control.
-- `assist-client/renderer/styles.css` — draft chip + editable-draft styling.
-- `assist-client/bin/alignos` — `draft <id>` and `watch` commands.
+- `assist-local/src/config.js` — add `agentConfig()` defaults helper.
+- `assist-local/src/mesh-client.js` — `approve(taskId, text)`.
+- `assist-local/src/main.js` — IPC handlers (`drafts`/`draft-get`/`redraft`), `approve` sends draft text, start the loop.
+- `assist-local/src/preload.js` — expose `drafts`/`draftGet`/`redraft`/`onDraftUpdated`, `approve(id, text)`.
+- `assist-local/renderer/app.js` — inbox chips, review editable draft, redraft, live refresh, MOCK.
+- `assist-local/renderer/index.html` — editable draft textarea + redraft control.
+- `assist-local/renderer/styles.css` — draft chip + editable-draft styling.
+- `assist-local/bin/alignos` — `draft <id>` and `watch` commands.
 
-> All commands below assume cwd `assist-client/`. Commit messages omit any Co-Authored-By trailer (repo convention).
+> All commands below assume cwd `assist-local/`. Commit messages omit any Co-Authored-By trailer (repo convention).
 
 ---
 
 ## Task 1: Draft overlay store
 
 **Files:**
-- Create: `assist-client/src/draft-store.js`
-- Test: `assist-client/test/draft-store.test.js`
+- Create: `assist-local/src/draft-store.js`
+- Test: `assist-local/test/draft-store.test.js`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `assist-client/test/draft-store.test.js`:
+Create `assist-local/test/draft-store.test.js`:
 
 ```javascript
 'use strict';
@@ -89,7 +87,7 @@ Expected: FAIL with `Cannot find module '../src/draft-store'`.
 
 - [ ] **Step 3: Write the implementation**
 
-Create `assist-client/src/draft-store.js`:
+Create `assist-local/src/draft-store.js`:
 
 ```javascript
 'use strict';
@@ -137,7 +135,7 @@ Expected: `draft-store: OK`
 
 ```bash
 git add src/draft-store.js test/draft-store.test.js
-git commit -m "feat(assist-client): local draft overlay store"
+git commit -m "feat(assist-local): local draft overlay store"
 ```
 
 ---
@@ -145,13 +143,13 @@ git commit -m "feat(assist-client): local draft overlay store"
 ## Task 2: Read-only agent runner
 
 **Files:**
-- Modify: `assist-client/src/config.js` (add `agentConfig()`)
-- Create: `assist-client/src/agent-runner.js`
-- Test: `assist-client/test/agent-runner.test.js`
+- Modify: `assist-local/src/config.js` (add `agentConfig()`)
+- Create: `assist-local/src/agent-runner.js`
+- Test: `assist-local/test/agent-runner.test.js`
 
 - [ ] **Step 1: Add the config defaults helper**
 
-In `assist-client/src/config.js`, add `agentConfig` and export it. Replace the export line:
+In `assist-local/src/config.js`, add `agentConfig` and export it. Replace the export line:
 
 ```javascript
 module.exports = { DIR, CONFIG, ensureDir, load, save };
@@ -180,7 +178,7 @@ module.exports = { DIR, CONFIG, ensureDir, load, save, agentConfig };
 
 - [ ] **Step 2: Write the failing test**
 
-Create `assist-client/test/agent-runner.test.js`:
+Create `assist-local/test/agent-runner.test.js`:
 
 ```javascript
 'use strict';
@@ -260,7 +258,7 @@ Expected: FAIL with `Cannot find module '../src/agent-runner'`.
 
 - [ ] **Step 4: Write the implementation**
 
-Create `assist-client/src/agent-runner.js`:
+Create `assist-local/src/agent-runner.js`:
 
 ```javascript
 'use strict';
@@ -357,7 +355,7 @@ Expected: `agent-runner: OK`
 
 ```bash
 git add src/config.js src/agent-runner.js test/agent-runner.test.js
-git commit -m "feat(assist-client): read-only local agent runner (claude/codex)"
+git commit -m "feat(assist-local): read-only local agent runner (claude/codex)"
 ```
 
 ---
@@ -365,12 +363,12 @@ git commit -m "feat(assist-client): read-only local agent runner (claude/codex)"
 ## Task 3: Drafting loop
 
 **Files:**
-- Create: `assist-client/src/draft-loop.js`
-- Test: `assist-client/test/draft-loop.test.js`
+- Create: `assist-local/src/draft-loop.js`
+- Test: `assist-local/test/draft-loop.test.js`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `assist-client/test/draft-loop.test.js`:
+Create `assist-local/test/draft-loop.test.js`:
 
 ```javascript
 'use strict';
@@ -430,7 +428,7 @@ Expected: FAIL with `Cannot find module '../src/draft-loop'`.
 
 - [ ] **Step 3: Write the implementation**
 
-Create `assist-client/src/draft-loop.js`:
+Create `assist-local/src/draft-loop.js`:
 
 ```javascript
 'use strict';
@@ -520,7 +518,7 @@ Expected: `draft-loop: OK`
 
 ```bash
 git add src/draft-loop.js test/draft-loop.test.js
-git commit -m "feat(assist-client): inbox drafting loop with bounded queue"
+git commit -m "feat(assist-local): inbox drafting loop with bounded queue"
 ```
 
 ---
@@ -528,12 +526,12 @@ git commit -m "feat(assist-client): inbox drafting loop with bounded queue"
 ## Task 4: Send the local draft on approve
 
 **Files:**
-- Modify: `assist-client/src/mesh-client.js:41-42`
-- Test: `assist-client/test/mesh-approve.test.js`
+- Modify: `assist-local/src/mesh-client.js:41-42`
+- Test: `assist-local/test/mesh-approve.test.js`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `assist-client/test/mesh-approve.test.js`:
+Create `assist-local/test/mesh-approve.test.js`:
 
 ```javascript
 'use strict';
@@ -578,7 +576,7 @@ Expected: FAIL — `approve('task-1', 'the drafted reply')` currently ignores th
 
 - [ ] **Step 3: Write the implementation**
 
-In `assist-client/src/mesh-client.js`, replace the `approve` definition (currently lines 41-42):
+In `assist-local/src/mesh-client.js`, replace the `approve` definition (currently lines 41-42):
 
 ```javascript
 const approve = (taskId) =>
@@ -603,7 +601,7 @@ Expected: `mesh-client approve: OK`
 
 ```bash
 git add src/mesh-client.js test/mesh-approve.test.js
-git commit -m "feat(assist-client): approve sends the local draft text"
+git commit -m "feat(assist-local): approve sends the local draft text"
 ```
 
 ---
@@ -611,12 +609,12 @@ git commit -m "feat(assist-client): approve sends the local draft text"
 ## Task 5: Wire main process + preload bridge
 
 **Files:**
-- Modify: `assist-client/src/main.js` (imports, IPC handlers, loop start, approve)
-- Modify: `assist-client/src/preload.js`
+- Modify: `assist-local/src/main.js` (imports, IPC handlers, loop start, approve)
+- Modify: `assist-local/src/preload.js`
 
 - [ ] **Step 1: Add imports and the loop starter in `main.js`**
 
-In `assist-client/src/main.js`, after the existing `const agentLogs = require('./agent-logs');` line, add:
+In `assist-local/src/main.js`, after the existing `const agentLogs = require('./agent-logs');` line, add:
 
 ```javascript
 const drafts = require('./draft-store');
@@ -633,7 +631,7 @@ function startDraftLoop() {
 
 - [ ] **Step 2: Start the loop once the window exists**
 
-In `assist-client/src/main.js`, change the `createWindow` body so it starts the loop after loading the file. Replace:
+In `assist-local/src/main.js`, change the `createWindow` body so it starts the loop after loading the file. Replace:
 
 ```javascript
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
@@ -650,7 +648,7 @@ with:
 
 - [ ] **Step 3: Restart the loop after first-time setup**
 
-In `assist-client/src/main.js`, in the `setup` handler, add `startDraftLoop();` before `return { ok: true };`:
+In `assist-local/src/main.js`, in the `setup` handler, add `startDraftLoop();` before `return { ok: true };`:
 
 ```javascript
 ipcMain.handle('setup', async (_e, { url, token }) => {
@@ -664,7 +662,7 @@ ipcMain.handle('setup', async (_e, { url, token }) => {
 
 - [ ] **Step 4: Add draft IPC handlers and make approve send the draft text**
 
-In `assist-client/src/main.js`, replace the existing `approve` handler line:
+In `assist-local/src/main.js`, replace the existing `approve` handler line:
 
 ```javascript
 ipcMain.handle('approve', async (_e, { id }) => { const t = await mc.approve(id); store.record({ taskId: id, verdict: 'approve' }); return t; });
@@ -691,7 +689,7 @@ ipcMain.handle('approve', async (_e, { id, text }) => {
 
 - [ ] **Step 5: Expose the new surface in `preload.js`**
 
-In `assist-client/src/preload.js`, replace the `approve` line and add the draft methods. Replace:
+In `assist-local/src/preload.js`, replace the `approve` line and add the draft methods. Replace:
 
 ```javascript
   approve: (id) => ipcRenderer.invoke('approve', { id }),
@@ -716,7 +714,7 @@ Expected: no output, exit 0.
 
 ```bash
 git add src/main.js src/preload.js
-git commit -m "feat(assist-client): wire draft loop + IPC into main/preload"
+git commit -m "feat(assist-local): wire draft loop + IPC into main/preload"
 ```
 
 ---
@@ -724,12 +722,12 @@ git commit -m "feat(assist-client): wire draft loop + IPC into main/preload"
 ## Task 6: Inbox draft chips + MOCK
 
 **Files:**
-- Modify: `assist-client/renderer/app.js` (MOCK, `setView`, `loadInbox`, new `draftChip`)
-- Modify: `assist-client/renderer/styles.css` (chip styles)
+- Modify: `assist-local/renderer/app.js` (MOCK, `setView`, `loadInbox`, new `draftChip`)
+- Modify: `assist-local/renderer/styles.css` (chip styles)
 
 - [ ] **Step 1: Extend the MOCK with draft methods**
 
-In `assist-client/renderer/app.js`, inside the `MOCK` IIFE, immediately AFTER the `const tasks = [ … ];` array and BEFORE `return {`, add:
+In `assist-local/renderer/app.js`, inside the `MOCK` IIFE, immediately AFTER the `const tasks = [ … ];` array and BEFORE `return {`, add:
 
 ```javascript
   const mockDrafts = {
@@ -766,7 +764,7 @@ with:
 
 - [ ] **Step 2: Track the current view**
 
-In `assist-client/renderer/app.js`, replace the `setView` function:
+In `assist-local/renderer/app.js`, replace the `setView` function:
 
 ```javascript
 function setView(v) {
@@ -788,7 +786,7 @@ function setView(v) {
 
 - [ ] **Step 3: Add the chip helper and render chips in the inbox**
 
-In `assist-client/renderer/app.js`, add this helper just above `async function loadInbox() {`:
+In `assist-local/renderer/app.js`, add this helper just above `async function loadInbox() {`:
 
 ```javascript
 function draftChip(d) {
@@ -825,7 +823,7 @@ async function loadInbox() {
 
 - [ ] **Step 4: Add chip styles**
 
-In `assist-client/renderer/styles.css`, after the `.chip{…}` rule (line ~135), add:
+In `assist-local/renderer/styles.css`, after the `.chip{…}` rule (line ~135), add:
 
 ```css
 .dchip{font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:2px 7px;white-space:nowrap}
@@ -845,7 +843,7 @@ Then open `renderer/index.html` directly in a browser (no Electron needed — `M
 
 ```bash
 git add renderer/app.js renderer/styles.css
-git commit -m "feat(assist-client): draft-status chips in the inbox"
+git commit -m "feat(assist-local): draft-status chips in the inbox"
 ```
 
 ---
@@ -853,13 +851,13 @@ git commit -m "feat(assist-client): draft-status chips in the inbox"
 ## Task 7: Review screen — editable local draft, redraft, live refresh
 
 **Files:**
-- Modify: `assist-client/renderer/index.html:159-161` (add textarea + redraft control)
-- Modify: `assist-client/renderer/styles.css` (editable draft + redraft styling)
-- Modify: `assist-client/renderer/app.js` (`renderDraft`, `openReview`, approve/redraft/live-refresh wiring)
+- Modify: `assist-local/renderer/index.html:159-161` (add textarea + redraft control)
+- Modify: `assist-local/renderer/styles.css` (editable draft + redraft styling)
+- Modify: `assist-local/renderer/app.js` (`renderDraft`, `openReview`, approve/redraft/live-refresh wiring)
 
 - [ ] **Step 1: Add the editable draft + redraft control to the HTML**
 
-In `assist-client/renderer/index.html`, replace these three lines (159-161):
+In `assist-local/renderer/index.html`, replace these three lines (159-161):
 
 ```html
       <div class="lbl">Your assistant drafted a reply</div>
@@ -881,7 +879,7 @@ with:
 
 - [ ] **Step 2: Style the editable draft + redraft row**
 
-In `assist-client/renderer/styles.css`, after the `.draft{…}` rule (line ~138), add:
+In `assist-local/renderer/styles.css`, after the `.draft{…}` rule (line ~138), add:
 
 ```css
 .draft-edit{width:100%;box-sizing:border-box;padding:16px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;font-size:14px;line-height:1.6;color:#2C281F;resize:vertical}
@@ -892,7 +890,7 @@ In `assist-client/renderer/styles.css`, after the `.draft{…}` rule (line ~138)
 
 - [ ] **Step 3: Add the `renderDraft` helper**
 
-In `assist-client/renderer/app.js`, add this function just above `async function openReview(id) {`:
+In `assist-local/renderer/app.js`, add this function just above `async function openReview(id) {`:
 
 ```javascript
 // Show the draft for a non-terminal task: prefer the local overlay draft (editable when ready);
@@ -938,7 +936,7 @@ function renderDraft(t, d, who) {
 
 - [ ] **Step 4: Use `renderDraft` from `openReview`**
 
-In `assist-client/renderer/app.js`, replace the whole `openReview` function with:
+In `assist-local/renderer/app.js`, replace the whole `openReview` function with:
 
 ```javascript
 async function openReview(id) {
@@ -971,7 +969,7 @@ async function openReview(id) {
 
 - [ ] **Step 5: Wire approve (send edited text), redraft, and live refresh**
 
-In `assist-client/renderer/app.js`, in the `wire()` function, replace the existing approve handler:
+In `assist-local/renderer/app.js`, in the `wire()` function, replace the existing approve handler:
 
 ```javascript
   $('rv-approve').addEventListener('click', async () => { try { await api.approve(current.id); toast('Approved — sent.'); loadInbox(); } catch (e) { fail(e.message); } });
@@ -1014,7 +1012,7 @@ Open `renderer/index.html` in a browser. Expected:
 
 ```bash
 git add renderer/index.html renderer/styles.css renderer/app.js
-git commit -m "feat(assist-client): editable local draft + redraft in review"
+git commit -m "feat(assist-local): editable local draft + redraft in review"
 ```
 
 ---
@@ -1022,11 +1020,11 @@ git commit -m "feat(assist-client): editable local draft + redraft in review"
 ## Task 8: CLI commands (`draft`, `watch`)
 
 **Files:**
-- Modify: `assist-client/bin/alignos` (header comment, `resolveId` list, two new cases, usage line)
+- Modify: `assist-local/bin/alignos` (header comment, `resolveId` list, two new cases, usage line)
 
 - [ ] **Step 1: Allow id resolution for `draft`**
 
-In `assist-client/bin/alignos`, update the id-resolution list. Replace:
+In `assist-local/bin/alignos`, update the id-resolution list. Replace:
 
 ```javascript
   if (['show', 'approve', 'followup', 'decline'].includes(cmd)) id = await resolveId(id);
@@ -1040,7 +1038,7 @@ with:
 
 - [ ] **Step 2: Add the `draft` and `watch` cases**
 
-In `assist-client/bin/alignos`, add these two cases immediately before the `default:` case in the `switch (cmd)`:
+In `assist-local/bin/alignos`, add these two cases immediately before the `default:` case in the `switch (cmd)`:
 
 ```javascript
     case 'draft': {
@@ -1064,7 +1062,7 @@ In `assist-client/bin/alignos`, add these two cases immediately before the `defa
 
 - [ ] **Step 3: Update the usage line and header comment**
 
-In `assist-client/bin/alignos`, replace the `default:` body usage string:
+In `assist-local/bin/alignos`, replace the `default:` body usage string:
 
 ```javascript
       console.log('alignos: setup | status | inbox | show <id> | approve <id> | followup <id> --msg <t> | decline <id> [--note <t>]');
@@ -1092,7 +1090,7 @@ Expected: no output, exit 0.
 
 ```bash
 git add bin/alignos
-git commit -m "feat(assist-client): alignos draft/watch CLI commands"
+git commit -m "feat(assist-local): alignos draft/watch CLI commands"
 ```
 
 ---
@@ -1151,7 +1149,7 @@ Expected: app window opens without console errors; inbox rows show draft chips o
 
 ```bash
 git add -A
-git commit -m "test(assist-client): verify local drafting end-to-end"
+git commit -m "test(assist-local): verify local drafting end-to-end"
 ```
 
 ---

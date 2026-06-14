@@ -1,12 +1,17 @@
 # TEE Quick Mode — Owner-Style Refinement Loop Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Historical implementation plan. The design shipped, but the live Phala M3 deployment uses the
+> Codex-backed image (`ghcr.io/sm86/alignos-node:codex1`) with `ALIGN_DRAFT_BACKEND=codex`,
+> `ALIGN_LOOP=on`, and `CODEX_AUTH_JSON_B64`, not the original Claude-token image path below.
+> See [`../quick-mode-style-loop-design.md`](../quick-mode-style-loop-design.md),
+> [`../notes/2026-06-14-loop-local-verification.md`](../notes/2026-06-14-loop-local-verification.md),
+> and [`../../../tee-mesh/DEPLOY.md`](../../../tee-mesh/DEPLOY.md) for the current runbook.
 
-**Goal:** Make TEE quick mode answer with a real model (the owner's Claude subscription) by running an inbound prompt through a 5–6 pass refinement loop that replays the owner's prompting style learned from their agent logs.
+**Goal:** Make TEE quick mode answer with a real model by running an inbound prompt through a configurable refinement loop that replays the owner's prompting style learned from their agent logs.
 
 **Architecture:** A new `loop.ts` orchestrates passes over the existing single-pass `draft.ts` primitive: pass 1 is the current draft, passes 2–6 call `refinePass()` (one `claude -p` call each) that acts as the owner, picks the next refinement in their style, and applies it — stopping early on convergence. The owner's prompting style is distilled (one cached call) from redacted "follow-up chains" extracted from their logs by `agent-logs.js`. `a2a.ts` gains an injectable drafter seam so the loop is wired behind `ALIGN_LOOP=on` and unit-testable. M3 bakes the `claude` CLI + an OAuth token into the TEE image.
 
-**Tech Stack:** Deno + TypeScript (`tee-mesh/node`), Node/CommonJS + Electron (`assist-client`). Tests: `deno test -A` for node code, `node --test` for client code.
+**Tech Stack:** Deno + TypeScript (`tee-mesh/node`), Node/CommonJS + Electron (`assist-local`). Tests: `deno test -A` for node code, `node --test` for client code.
 
 ---
 
@@ -24,7 +29,7 @@
 - `Dockerfile` — **modify.** Add Node + `claude` CLI; `HOME=/data`.
 - `scripts/dev-local.sh` — **new.** Local standalone run for M0–M2.
 
-**Client (`assist-client/`)**
+**Client (`assist-local/`)**
 - `src/agent-logs.js` — **modify.** Add `userPromptChain` (pure) + `ingestStyle`; export both.
 - `src/agent-logs.test.js` — **new.** `userPromptChain` test (`node --test`).
 - `src/mesh-client.js` — **modify.** `uploadKnowledge(pairs, chains)`.
@@ -473,13 +478,13 @@ git commit -m "feat(node): inject drafter into a2a; ALIGN_LOOP gate + a2a_loop e
 ## Task 6: `userPromptChain` (pure) in agent-logs.js
 
 **Files:**
-- Modify: `assist-client/src/agent-logs.js`
-- Test: `assist-client/src/agent-logs.test.js`
+- Modify: `assist-local/src/agent-logs.js`
+- Test: `assist-local/src/agent-logs.test.js`
 
 - [ ] **Step 1: Write the failing test**
 
 ```js
-// assist-client/src/agent-logs.test.js
+// assist-local/src/agent-logs.test.js
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
@@ -509,12 +514,12 @@ test('userPromptChain caps each prompt length and total turns', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd assist-client && node --test src/agent-logs.test.js`
+Run: `cd assist-local && node --test src/agent-logs.test.js`
 Expected: FAIL — `userPromptChain is not a function`.
 
 - [ ] **Step 3: Implement `userPromptChain` and export it**
 
-In `assist-client/src/agent-logs.js`, add this function (place it just above `ingestCorpus`, after `stripCode`):
+In `assist-local/src/agent-logs.js`, add this function (place it just above `ingestCorpus`, after `stripCode`):
 ```js
 // Ordered user prompts within one session — the owner's refinement moves (redacted, capped).
 function userPromptChain(msgs, { maxLen = 280, maxTurns = 8 } = {}) {
@@ -533,13 +538,13 @@ Then add `userPromptChain` to the `module.exports` object on the last line.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd assist-client && node --test src/agent-logs.test.js`
+Run: `cd assist-local && node --test src/agent-logs.test.js`
 Expected: PASS (2 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add assist-client/src/agent-logs.js assist-client/src/agent-logs.test.js
+git add assist-local/src/agent-logs.js assist-local/src/agent-logs.test.js
 git commit -m "feat(client): userPromptChain — extract redacted owner prompt chains"
 ```
 
@@ -548,16 +553,16 @@ git commit -m "feat(client): userPromptChain — extract redacted owner prompt c
 ## Task 7: `ingestStyle` + node-side `profile.ts` + upload wiring
 
 **Files:**
-- Modify: `assist-client/src/agent-logs.js`
-- Modify: `assist-client/src/mesh-client.js`
-- Modify: `assist-client/src/main.js`, `assist-client/bin/alignos`
+- Modify: `assist-local/src/agent-logs.js`
+- Modify: `assist-local/src/mesh-client.js`
+- Modify: `assist-local/src/main.js`, `assist-local/bin/alignos`
 - Modify: `tee-mesh/node/knowledge.ts`, `tee-mesh/node/ingress.ts`
 - Create: `tee-mesh/node/profile.ts`
 - Test: `tee-mesh/node/knowledge_test.ts`
 
 - [ ] **Step 1: Add `ingestStyle` to agent-logs.js**
 
-In `assist-client/src/agent-logs.js`, add (just below `userPromptChain`):
+In `assist-local/src/agent-logs.js`, add (just below `userPromptChain`):
 ```js
 // Build redacted prompt chains across recent sessions — the corpus that teaches the loop
 // how the owner iterates. Mirrors ingestCorpus(); chains with <2 turns are skipped.
@@ -577,7 +582,7 @@ Add `ingestStyle` to `module.exports`.
 
 - [ ] **Step 2: Update `uploadKnowledge` to send chains**
 
-In `assist-client/src/mesh-client.js`, replace line 64:
+In `assist-local/src/mesh-client.js`, replace line 64:
 ```js
 const uploadKnowledge = (pairs, chains) =>
   ownerPost('/owner/knowledge', chains ? { pairs, chains } : { pairs });
@@ -585,13 +590,13 @@ const uploadKnowledge = (pairs, chains) =>
 
 - [ ] **Step 3: Send chains from both upload call sites**
 
-In `assist-client/src/main.js` (lines 51–52), replace with:
+In `assist-local/src/main.js` (lines 51–52), replace with:
 ```js
   const { pairs, stats } = agentLogs.ingestCorpus({ days: 7, maxPairs: 1500 });
   const { chains } = agentLogs.ingestStyle({ days: 7 });
   const r = await mc.uploadKnowledge(pairs, chains);
 ```
-In `assist-client/bin/alignos`, do the same at both blocks (lines ~49–50 and ~56–57): add `const { chains } = require('../src/agent-logs').ingestStyle(seedOpts());` after the `ingestCorpus` line and pass `chains` to `mc.uploadKnowledge(pairs, chains)`.
+In `assist-local/bin/alignos`, do the same at both blocks (lines ~49–50 and ~56–57): add `const { chains } = require('../src/agent-logs').ingestStyle(seedOpts());` after the `ingestCorpus` line and pass `chains` to `mc.uploadKnowledge(pairs, chains)`.
 
 - [ ] **Step 4: Store chains + profile cache in knowledge.ts**
 
@@ -742,8 +747,8 @@ Expected: PASS.
 
 ```bash
 git add tee-mesh/node/knowledge.ts tee-mesh/node/knowledge_test.ts tee-mesh/node/profile.ts \
-        tee-mesh/node/ingress.ts assist-client/src/agent-logs.js assist-client/src/mesh-client.js \
-        assist-client/src/main.js assist-client/bin/alignos
+        tee-mesh/node/ingress.ts assist-local/src/agent-logs.js assist-local/src/mesh-client.js \
+        assist-local/src/main.js assist-local/bin/alignos
 git commit -m "feat: prompting-style chains end-to-end (ingest, store, distill, cache)"
 ```
 
@@ -797,14 +802,14 @@ Run the same curl with the node started **without** `ALIGN_LOOP=on` and eyeball 
 - [ ] **Step 6: Commit a short verification note**
 
 ```bash
-mkdir -p docs/superpowers/notes
-cat > docs/superpowers/notes/2026-06-14-loop-local-verification.md <<'MD'
+mkdir -p docs/specs/notes
+cat > docs/specs/notes/2026-06-14-loop-local-verification.md <<'MD'
 # Local loop verification (M1+M2)
 - quick mode returns a real answer (no placeholder) with ALIGN_DRAFT_BACKEND=claude
 - ALIGN_LOOP=on → events.jsonl shows a2a_loop with passes in 2..6
 - style_profile cached in knowledge.json after first looped ask
 MD
-git add docs/superpowers/notes/2026-06-14-loop-local-verification.md
+git add docs/specs/notes/2026-06-14-loop-local-verification.md
 git commit -m "docs: local verification notes for the refinement loop (M1+M2)"
 ```
 
@@ -866,7 +871,7 @@ Expected: a real answer, NOT containing `placeholder draft`.
 
 ```bash
 git add tee-mesh/node/Dockerfile
-git commit -m "feat(tee): bake claude CLI + OAuth token support into the node image"
+git commit -m "feat(tee): bake model CLI auth support into the node image"
 ```
 
 ---
@@ -880,7 +885,7 @@ Expected: PASS — `loop_test.ts`, `a2a_test.ts`, `knowledge_test.ts`, `owner_te
 
 - [ ] **Step 2: Run all client tests**
 
-Run: `cd assist-client && node --test src/agent-logs.test.js`
+Run: `cd assist-local && node --test src/agent-logs.test.js`
 Expected: PASS.
 
 - [ ] **Step 3: Type-check the node**
