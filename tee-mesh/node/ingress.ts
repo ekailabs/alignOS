@@ -92,6 +92,12 @@ export function makeHandler(ctx: IngressCtx) {
     // A2A surface (assist-remote). Public for peers; /owner/* requires the Ed25519 owner
     // envelope. /owner/claim is the one unauthenticated owner route (setup-token bootstrap).
     const a2a = { store: ctx.store, policy: ctx.policy, selfId: ctx.selfId };
+
+    const askMatch = p.match(/^\/ask-([a-z0-9-]+)$/i);
+    if (askMatch && (req.method === "GET" || req.method === "POST")) {
+      return handleAsk(ctx, a2a, req, url, askMatch[1].toLowerCase());
+    }
+
     if (p === "/a2a" && req.method === "POST") {
       return handleA2A(a2a, await req.text(), false);
     }
@@ -115,6 +121,83 @@ export function makeHandler(ctx: IngressCtx) {
 
     return new Response("not found", { status: 404 });
   };
+}
+
+async function handleAsk(
+  ctx: IngressCtx,
+  a2a: { store: TaskStore; policy?: Policy; selfId: string },
+  req: Request,
+  url: URL,
+  handle: string,
+): Promise<Response> {
+  const self = ctx.getSelfCard();
+  const selfHandle = self.owner?.handle?.toLowerCase();
+  if (selfHandle !== handle) {
+    const peer = ctx.dir.all().find((c) =>
+      c.owner?.handle?.toLowerCase() === handle
+    );
+    if (!peer) {
+      return Response.json({ error: `unknown assistant: ${handle}` }, {
+        status: 404,
+      });
+    }
+    const target = new URL(url);
+    target.protocol = new URL(peer.gateway_url).protocol;
+    target.host = new URL(peer.gateway_url).host;
+    return Response.redirect(target, 307);
+  }
+
+  let body: Record<string, unknown> = {};
+  if (req.method === "POST") {
+    body = await req.json().catch(() => ({})) as Record<string, unknown>;
+  }
+  const mode = String(body.mode ?? url.searchParams.get("mode") ?? "quick")
+    .toLowerCase();
+  const question = String(
+    body.question ?? body.q ?? url.searchParams.get("question") ??
+      url.searchParams.get("q") ?? "",
+  ).trim();
+
+  if (mode !== "quick" && mode !== "deep") {
+    return Response.json({ error: "mode must be quick or deep" }, {
+      status: 400,
+    });
+  }
+  if (!question) {
+    return Response.json({ error: "question is required" }, { status: 400 });
+  }
+
+  if (mode === "deep") {
+    return Response.json({
+      mode,
+      owner: self.owner,
+      question,
+      status: "requires-local-client",
+      handoff: "assist-client",
+      folder_access: "explicit-per-request",
+      message:
+        "Deep Mode runs on the owner's local machine; the TEE can suggest scoped access, but the edge enforces approval.",
+    });
+  }
+
+  const rpc = {
+    jsonrpc: "2.0",
+    id: crypto.randomUUID(),
+    method: "message/send",
+    params: {
+      message: {
+        role: "user",
+        parts: [{ kind: "text", text: question }],
+        messageId: crypto.randomUUID(),
+      },
+      from: {
+        node_id: "ask-endpoint",
+        agent: `ask-${handle}`,
+        display: `ask-${handle}`,
+      },
+    },
+  };
+  return handleA2A(a2a, JSON.stringify(rpc), false);
 }
 
 async function proxyAgent(

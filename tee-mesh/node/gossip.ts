@@ -11,10 +11,33 @@ export class Directory {
   private backoff = new Map<string, { until: number; fails: number }>();
   private members: { node_id: string; gateway_url: string }[] = [];
   private lastMemberRead = 0;
+  private path = Deno.env.get("ALIGN_PEERS") ?? "./peers.json";
 
-  setSelf(card: NodeCard) { this.map.set(card.node_id, card); }
+  load() {
+    try {
+      const raw = Deno.readTextFileSync(this.path);
+      for (const c of JSON.parse(raw) as NodeCard[]) {
+        if (c?.node_id) this.map.set(c.node_id, c);
+      }
+    } catch { /* fresh directory */ }
+  }
 
-  all(): NodeCard[] { return [...this.map.values()]; }
+  private persist() {
+    try {
+      Deno.writeTextFileSync(this.path, JSON.stringify(this.all(), null, 2));
+    } catch (e) {
+      appendEvent("peer_directory_persist_failed", { error: String(e) });
+    }
+  }
+
+  setSelf(card: NodeCard) {
+    this.map.set(card.node_id, card);
+    this.persist();
+  }
+
+  all(): NodeCard[] {
+    return [...this.map.values()];
+  }
 
   // last-write-wins by version; tombstones (deleted=true) ride the same channel so a
   // removed node/agent actually propagates instead of lingering. Never overwrite self.
@@ -24,25 +47,38 @@ export class Directory {
     if (!incoming?.node_id || incoming.node_id === selfId) return false;
     const cur = this.map.get(incoming.node_id);
     if (cur && incoming.version <= cur.version) return false;
-    this.map.set(incoming.node_id, { ...incoming, last_seen: cur?.last_seen ?? new Date().toISOString() });
+    this.map.set(incoming.node_id, {
+      ...incoming,
+      last_seen: cur?.last_seen ?? new Date().toISOString(),
+    });
+    this.persist();
     return true;
   }
 
   // Stamp "I directly heard from this peer just now" — independent of whether its card changed.
   seen(nodeId: string) {
     const c = this.map.get(nodeId);
-    if (c) c.last_seen = new Date().toISOString();
+    if (c) {
+      c.last_seen = new Date().toISOString();
+      this.persist();
+    }
   }
 
   private ready(url: string): boolean {
     const b = this.backoff.get(url);
     return !b || Date.now() >= b.until;
   }
-  private ok(url: string) { this.backoff.delete(url); }
+  private ok(url: string) {
+    this.backoff.delete(url);
+  }
   private fail(url: string) {
     const fails = (this.backoff.get(url)?.fails ?? 0) + 1;
     const jitter = Math.floor(Math.random() * 1000);
-    this.backoff.set(url, { fails, until: Date.now() + Math.min(MAX_BACKOFF, BASE_BACKOFF * 2 ** fails) + jitter });
+    this.backoff.set(url, {
+      fails,
+      until: Date.now() + Math.min(MAX_BACKOFF, BASE_BACKOFF * 2 ** fails) +
+        jitter,
+    });
   }
 
   // Membership lives on-chain but is near-static; refresh it on a slow cadence and tolerate
@@ -57,15 +93,26 @@ export class Directory {
     }
   }
 
-  async round(selfId: string, gatewayUrl: string, registry: RegistryClient, memberTtlMs = 30_000) {
+  async round(
+    selfId: string,
+    gatewayUrl: string,
+    registry: RegistryClient,
+    memberTtlMs = 30_000,
+  ) {
     await this.refreshMembers(registry, memberTtlMs);
     for (const m of this.members) {
-      if (m.node_id === selfId || m.gateway_url === gatewayUrl || !m.gateway_url) continue;
+      if (
+        m.node_id === selfId || m.gateway_url === gatewayUrl || !m.gateway_url
+      ) continue;
       if (!this.ready(m.gateway_url)) continue;
       try {
         const [cardR, peersR] = await Promise.all([
-          fetch(`${m.gateway_url}/.well-known/agent-card.json`, { signal: AbortSignal.timeout(6000) }),
-          fetch(`${m.gateway_url}/peers`, { signal: AbortSignal.timeout(6000) }),
+          fetch(`${m.gateway_url}/.well-known/agent-card.json`, {
+            signal: AbortSignal.timeout(6000),
+          }),
+          fetch(`${m.gateway_url}/peers`, {
+            signal: AbortSignal.timeout(6000),
+          }),
         ]);
         const card = await cardR.json() as NodeCard;
         const changed = this.merge(card, selfId);
@@ -74,18 +121,32 @@ export class Directory {
         let transitive = 0;
         for (const p of peers) if (this.merge(p, selfId)) transitive++;
         this.ok(m.gateway_url);
-        if (changed || transitive) await appendEvent("merge", { from: m.gateway_url, node: card.node_id, transitive });
+        if (changed || transitive) {
+          await appendEvent("merge", {
+            from: m.gateway_url,
+            node: card.node_id,
+            transitive,
+          });
+        }
       } catch (e) {
         this.fail(m.gateway_url);
-        await appendEvent("peer_fetch_failed", { url: m.gateway_url, error: String(e) });
+        await appendEvent("peer_fetch_failed", {
+          url: m.gateway_url,
+          error: String(e),
+        });
       }
     }
   }
 }
 
 export async function runGossip(
-  dir: Directory, selfId: string, gatewayUrl: string, registry: RegistryClient,
-  refreshSelf: () => Promise<void>, intervalMs: number, stop: AbortSignal,
+  dir: Directory,
+  selfId: string,
+  gatewayUrl: string,
+  registry: RegistryClient,
+  refreshSelf: () => Promise<void>,
+  intervalMs: number,
+  stop: AbortSignal,
 ) {
   while (!stop.aborted) {
     try {

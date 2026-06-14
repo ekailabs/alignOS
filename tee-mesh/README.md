@@ -19,10 +19,20 @@ exchanging A2A-style **agent cards** plus how to connect to them. Trusted-setup 
 - **Agents = sibling containers** on an `internal` docker network. The node reverse-proxies
   `/agents/<name>/*` to them and is their sole egress; cross-CVM calls go node→node over the
   gateway. The node does not hold the docker socket.
+- **Node data = `/data` volume.** The TEE node persists A2A tasks to `/data/tasks.json` and
+  audit events to `/data/events.jsonl`, and the peer discovery snapshot to
+  `/data/peers.json`. This includes requests handled for other users. Raw local agent logs
+  are not mounted into the TEE; only redacted/compacted onboarding or Deep Mode slices are
+  sent across.
 
 ## Node HTTP surface
 - `GET /.well-known/agent-card.json` — this node's aggregated node card
+- `GET /.well-known/alignos-service.json` — this node projected as an owner-bound assistant service
 - `GET /peers` — the full directory (every known node card)
+- `GET /services` — the service directory: every known owner assistant, its owner handle,
+  `ask-{owner}` endpoint, owner-auth endpoint, Quick Mode URL, and Deep Mode handoff URL
+- `GET|POST /ask-<owner>?mode=quick|deep` — owner-specific ask endpoint. Demo examples:
+  `/ask-albi?mode=quick`, `/ask-andrew?mode=quick`, `/ask-shashank?mode=deep`.
 - `POST /gossip` — merge a pushed directory (pull is the default path)
 - `GET /quote?report_data=…` — dstack quote (public verifier surface)
 - `ALL /agents/<name>/*` — reverse-proxy to a local agent
@@ -33,14 +43,18 @@ exchanging A2A-style **agent cards** plus how to connect to them. Trusted-setup 
 ## Live deployment (prod7, Phala KMS)
 A 3-node mesh is running on `dstack-pha-prod7`, registry on Ethereum Sepolia
 `0xf31768d4E42d5e80aE95415309D7908ae730Fb41`. Each node runs a different skill:
-- node-a (calc): `https://85b887ee69cfcd49061d5bbdc5ffa94da11f2939-8080.dstack-pha-prod7.phala.network`
-- node-b (weather): `https://29736dcf7742550956c28a1174c1e0724b6d769c-8080.dstack-pha-prod7.phala.network`
-- node-c (define): `https://29b4c80372a66a7086d9c953b4c9902c7071b701-8080.dstack-pha-prod7.phala.network`
+- Albi (calc): `https://85b887ee69cfcd49061d5bbdc5ffa94da11f2939-8080.dstack-pha-prod7.phala.network`
+- Andrew (weather): `https://29736dcf7742550956c28a1174c1e0724b6d769c-8080.dstack-pha-prod7.phala.network`
+- Shashank (define): `https://29b4c80372a66a7086d9c953b4c9902c7071b701-8080.dstack-pha-prod7.phala.network`
 
 **Demo dashboard**: open `<any node>/dashboard` — shows every node, its isolated agents/skills,
 liveness + `mode=tee`, and a live "ask the mesh" box. Routing fans across CVMs: ask
 `what is 12 * 8?` / `weather in Tokyo` / `define attestation` and watch each land on the right node.
-`curl <any>/peers` shows all three; each `mode=tee`, agents reachable at `<node>/agents/<name>`.
+`curl <any>/peers` shows all three raw nodes; `curl <any>/services` shows the owner-bound
+assistant services. For the demo instantiation, the three services are Albi, Andrew, and
+Shashank. Each service advertises `/ask-albi`, `/ask-andrew`, or `/ask-shashank` with a
+`mode=quick|deep` parameter. Quick Mode runs through the TEE; Deep Mode hands off to the
+owner's local `assist-client`.
 
 ## Run the local 3-node mesh (anvil, no docker/TEE)
 ```bash

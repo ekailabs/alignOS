@@ -20,13 +20,16 @@ for i in $(seq 1 60); do
   sleep 2
 done
 
-echo "== /peers as seen by node-a (each node's isolated skills) =="
+echo "== /peers as seen by Albi (each user's isolated skills) =="
 curl -fsS "http://localhost:$PORT_A/peers" | python3 -c 'import sys,json; [print("  {} v{} mode={} agents=[{}] stale={}".format(p["app_id"], p["version"], p["mode"], ",".join(a["name"] for a in p["agents"]), p.get("stale"))) for p in json.load(sys.stdin)]'
 
+echo "== /services as seen by Albi (owner assistant discovery) =="
+curl -fsS "http://localhost:$PORT_A/services" | python3 -c 'import sys,json; d=json.load(sys.stdin); [print("  {} ({}) -> {} mode=quick|deep".format(s["owner"].get("display_name") or s["owner"]["handle"], s["owner"]["handle"], s["endpoints"]["ask"])) for s in d["services"]]'
+
 echo "== node count =="
-echo "  node-a sees ${N:-?} nodes (expect 3)"
+echo "  Albi sees ${N:-?} nodes (expect 3)"
 test "${N:-0}" = "3" || { echo "FAIL: mesh did not converge"; dc logs --tail=40; exit 1; }
 
-# Routing fans across the mesh: calc@node-a, weather@node-b, define@node-c — all asked at node-a.
+# Routing fans across the mesh: calc@Albi, weather@Andrew, define@Shashank — all asked at Albi.
 bash "$ROOT/scripts/e2e-routing.sh" "http://localhost:$PORT_A" || { echo "FAIL: e2e routing"; dc logs --tail=40; exit 1; }
 echo "ALL PASS"

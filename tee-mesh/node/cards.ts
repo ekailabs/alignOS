@@ -48,9 +48,11 @@ export interface ServiceDescriptor {
   endpoints: {
     node_card: string;
     service_card: string;
+    ask: string;
     public_a2a: string;
     owner_a2a: string;
     quick_mode: string;
+    deep_mode: string;
   };
   deep_mode: {
     runs_where: "owner-edge";
@@ -71,6 +73,7 @@ export function serviceFromCard(
   const base = card.gateway_url.replace(/\/$/, "");
   const owner = card.owner ??
     { handle: card.app_id, display_name: card.app_id, claimed: false };
+  const ask = `${base}/ask-${owner.handle}`;
   return {
     service_id: card.node_id,
     owner,
@@ -82,9 +85,11 @@ export function serviceFromCard(
     endpoints: {
       node_card: `${base}/.well-known/agent-card.json`,
       service_card: `${base}/.well-known/alignos-service.json`,
+      ask,
       public_a2a: `${base}/a2a`,
       owner_a2a: `${base}/owner/a2a`,
-      quick_mode: `${base}/a2a`,
+      quick_mode: `${ask}?mode=quick`,
+      deep_mode: `${ask}?mode=deep`,
     },
     deep_mode: {
       runs_where: "owner-edge",

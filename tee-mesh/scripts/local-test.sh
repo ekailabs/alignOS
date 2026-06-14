@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Local 3-node alignOS mesh on anvil. No docker, no TEE — proves the gossip + registry
-# logic end to end. Nodes run in local-identity mode with distinct ALIGN_NODE_ID.
+# logic end to end. Nodes run in local-identity mode with user-name ALIGN_NODE_IDs.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -34,32 +34,43 @@ start_agent() { # name port
 }
 start_node() { # id port manifest
   cd "$ROOT/node"
+  case "$1" in
+    albi) OWNER_HANDLE=albi OWNER_DISPLAY_NAME=Albi ;;
+    andrew) OWNER_HANDLE=andrew OWNER_DISPLAY_NAME=Andrew ;;
+    shashank) OWNER_HANDLE=shashank OWNER_DISPLAY_NAME=Shashank ;;
+    *) OWNER_HANDLE="$1" OWNER_DISPLAY_NAME="$1" ;;
+  esac
   ALIGN_NODE_ID="$1" ALIGN_PORT="$2" ALIGN_SELF_URL="http://localhost:$2" \
-    ALIGN_MANIFEST="$3" ALIGN_GOSSIP_INTERVAL=2 ALIGN_EVENTLOG="$WORK/$1.jsonl" \
+    ALIGN_OWNER_HANDLE="$OWNER_HANDLE" ALIGN_OWNER_DISPLAY_NAME="$OWNER_DISPLAY_NAME" \
+    ALIGN_MANIFEST="$3" ALIGN_GOSSIP_INTERVAL=2 ALIGN_EVENTLOG="$WORK/$1.events.jsonl" \
+    ALIGN_TASKS="$WORK/$1.tasks.json" ALIGN_PEERS="$WORK/$1.peers.json" \
     REGISTRY_RPC="$RPC" REGISTRY_CONTRACT="$ADDR" PRIVATE_KEY="$KEY" \
     "$DENO" run --allow-net --allow-env --allow-read --allow-write main.ts >"$WORK/$1.log" 2>&1 & PIDS+=($!)
 }
 
 echo "== agents (different sets per node) =="
-start_agent echo 9101   # node-a: echo only
-start_agent ping 9201   # node-b: ping only
-start_agent echo 9301; start_agent ping 9302   # node-c: both
+start_agent echo 9101   # albi: echo only
+start_agent ping 9201   # andrew: ping only
+start_agent echo 9301; start_agent ping 9302   # shashank: both
 sleep 1
 echo '[{"name":"echo","url":"http://localhost:9101"}]' > "$WORK/a.json"
 echo '[{"name":"ping","url":"http://localhost:9201"}]' > "$WORK/b.json"
 echo '[{"name":"echo","url":"http://localhost:9301"},{"name":"ping","url":"http://localhost:9302"}]' > "$WORK/c.json"
 
 echo "== nodes =="
-start_node node-a 8081 "$WORK/a.json"
-start_node node-b 8082 "$WORK/b.json"
-start_node node-c 8083 "$WORK/c.json"
+start_node albi 8081 "$WORK/a.json"
+start_node andrew 8082 "$WORK/b.json"
+start_node shashank 8083 "$WORK/c.json"
 sleep 8
 
-echo "== /peers as seen by node-a =="
+echo "== /peers as seen by Albi =="
 curl -s http://localhost:8081/peers | "$DENO" eval 'const ps=JSON.parse(await new Response(Deno.stdin.readable).text()); for(const p of ps) console.log(`  ${p.app_id} v${p.version} agents=[${p.agents.map(a=>a.name).join(",")}] stale=${p.stale}`)'
 
-echo "== cross-node proxy: ask node-a for node-c'\''s echo agent URL, then call it =="
-URL=$(curl -s http://localhost:8081/peers | "$DENO" eval 'const ps=JSON.parse(await new Response(Deno.stdin.readable).text()); const c=ps.find(p=>p.app_id==="node-c"); console.log(c.agents.find(a=>a.name==="echo").url)')
+echo "== /services as seen by Albi =="
+curl -s http://localhost:8081/services | "$DENO" eval 'const d=JSON.parse(await new Response(Deno.stdin.readable).text()); for(const s of d.services) console.log(`  ${s.owner.display_name} (${s.owner.handle}) -> ${s.endpoints.ask} quick=${s.endpoints.quick_mode} deep=${s.endpoints.deep_mode}`)'
+
+echo "== cross-node proxy: ask Albi for Shashank's echo agent URL, then call it =="
+URL=$(curl -s http://localhost:8081/peers | "$DENO" eval 'const ps=JSON.parse(await new Response(Deno.stdin.readable).text()); const c=ps.find(p=>p.app_id==="shashank"); console.log(c.agents.find(a=>a.name==="echo").url)')
 echo "  resolved: $URL"
 curl -s "$URL?q=hello-from-test" ; echo
 
@@ -68,5 +79,5 @@ echo "== on-chain getMembers() =="
 
 echo "== node count check =="
 N=$(curl -s http://localhost:8081/peers | "$DENO" eval 'console.log(JSON.parse(await new Response(Deno.stdin.readable).text()).length)')
-echo "  node-a sees $N nodes (expect 3)"
+echo "  Albi sees $N nodes (expect 3)"
 test "$N" = "3" && echo "PASS" || { echo "FAIL"; exit 1; }

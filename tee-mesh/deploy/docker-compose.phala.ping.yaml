@@ -10,8 +10,12 @@ services:
       REGISTRY_CONTRACT: ${REGISTRY_CONTRACT}
       PRIVATE_KEY: ${PRIVATE_KEY}
       DSTACK_SOCKET: /var/run/dstack.sock
+      ALIGN_TASKS: /data/tasks.json
+      ALIGN_EVENTLOG: /data/events.jsonl
+      ALIGN_PEERS: /data/peers.json
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
+      - alignos-data:/data
     networks: [default, agents]
   ping:
     image: ghcr.io/amiller/alignos-ping:latest
@@ -19,3 +23,5 @@ services:
 networks:
   agents:
     internal: true
+volumes:
+  alignos-data: {}

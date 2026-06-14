@@ -1,6 +1,6 @@
 'use strict';
 // Granted-folders store + flags. Deny-by-default: only listed folders are readable, and the
-// granted set is the sandbox the local claude/codex instance may run inside.
+// granted set is the sandbox the local agent-log reader may use.
 // Stored in ~/.alignos/scope.json (ALIGN_HOME overrides via config.js).
 const fs = require('fs');
 const path = require('path');

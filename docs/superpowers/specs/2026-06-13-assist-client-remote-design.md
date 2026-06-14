@@ -39,10 +39,16 @@ charge."*
 - Real mesh participation: `assist-remote` is a genuine A2A agent in `tee-mesh`.
 - **Connect** to an *already-running* private space via a one-time setup token (no key
   pasting after claim).
+- **Demo assumption:** the operator has already provisioned the TEE machines; onboarding
+  starts from gateway URLs + setup tokens, not from provisioning.
+- **Onboarding memory:** after claim, offer to seed the remote node with a redacted,
+  compacted agent-log digest from `~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`,
+  `~/.opencode`, and `~/.hermes`.
+- **Two operating modes:** Quick Mode runs in the TEE from synced notes + logs-derived
+  memory; Deep Mode runs locally when a task needs folders, files, or local tools.
 - **Preferences control center:** Connections (who can reach you), Auto-handle rules
-  (allow-list), What your assistant knows (notes/docs in the private space), Folders it can
-  read (deny-by-default, redacted) — including a built-in offer for your **Claude Code /
-  Codex session logs**.
+  (allow-list), What your assistant knows (notes/docs and onboarding log memory in the
+  private space), Folders it can read later in Deep Mode (deny-by-default, redacted).
 - A nearly-free capture seam (`decisions.jsonl`) so future eval/RLHF has real data from day one.
 
 ### Non-goals (deferred — see §12)
@@ -89,15 +95,29 @@ A user's presence is the pair **{edge device (`assist-client`), private space
 (`assist-remote`)}**. `assist-remote` is a **separate process** in the owner's CVM; the app
 and CLI are **clients** to it over an owner-authenticated channel (§5).
 
+**Operator-provisioned, owner-claimed.** The infrastructure operator may provision a pool of
+TEE/CVM instances ahead of time, but does not become the long-term assistant owner. Each
+running instance is claimed by one human owner through the setup-token flow (§11), and owner
+routes are then bound to that owner's local key.
+
+Example starting point:
+
+| Instance | Provisioned by | Claimed owner | Assistant identity |
+|---|---|---|---|
+| CVM 1 | Operator | Albi | Albi's `assist-remote` |
+| CVM 2 | Operator | Andrew | Andrew's `assist-remote` |
+| CVM 3 | Operator | Shashank | Shashank's `assist-remote` |
+
 ```
 ┌──────────────── User's edge device — assist-client (Node/Electron) ─────────────┐
 │  renderer/ (vanilla JS)  ◄──IPC via preload──►  src/main.js (Electron main, thin)│
 │  Set up · Inbox · Review · Preferences          bin/alignos (CLI, thin)          │
 │                                  └── src/ (Electron-free core) ──┐               │
 │                                  mesh-client · inbox-store ·     │               │
-│                                  scope · redact · transcripts ·  │               │
+│                                  scope · redact · agent-logs ·    │               │
 │                                  edge-reader · identity          │               │
-│  raw local data (files, repos, ~/.claude, ~/.codex) — stays here, scoped+redacted│
+│  raw local agent logs (~/.claude, ~/.codex, ~/.openclaw, ~/.pi, ~/.opencode,     │
+│  ~/.hermes) stay here; scoped+redacted slices can be sent after approval         │
 └───────────────┬──────────────────────────────────────────────────┬─────────────┘
    owner-auth +  │ A2A JSON-RPC/HTTP        edge sends only a redacted│ context slice
    client SSE    │ (tasks/resubscribe)      for local-data requests   │ (laptop must be online)
@@ -130,6 +150,18 @@ local files.
 
 A2A-native (the mesh already serves an agent-card). References: A2A spec latest / v0.3.0,
 github.com/a2aproject/A2A.
+
+**TEE service discovery endpoints:**
+
+| Endpoint | Audience | Purpose |
+|---|---|---|
+| `GET /.well-known/agent-card.json` | Mesh peers / verifiers | Raw node card: node identity, gateway, TEE mode, attestation digest, agent cards, and optional owner metadata. |
+| `GET /.well-known/alignos-service.json` | Mesh peers / clients | This TEE projected as one owner-bound assistant service, including owner handle, `ask-{owner}` endpoint, owner-auth endpoint, Quick Mode URL, and Deep Mode handoff URL. |
+| `GET /peers` | Mesh peers / operators | Raw eventually-consistent directory of node cards. |
+| `GET /services` | Mesh peers / clients | Service discovery directory across the mesh. In the demo it returns Albi, Andrew, and Shashank as three owner assistant services. |
+| `GET\|POST /ask-<owner>?mode=quick\|deep` | Peer assistants / clients | Owner-specific ask endpoint, e.g. `/ask-albi`, `/ask-andrew`, `/ask-shashank`. `mode=quick` runs through the TEE; `mode=deep` returns a local `assist-client` handoff contract. |
+| `POST /a2a` | Peer assistants | Public A2A surface for inbound asks and task lookup. This is the TEE Quick Mode endpoint for service-to-service requests. |
+| `POST /owner/a2a` | Owner's `assist-client` | Owner-authenticated inbox/review/control surface. |
 
 - **Request object = the A2A `Task`** (`id`, `contextId`, `status`, `artifacts`, `history`).
   An inbox item is a `Task` in an interrupted state wrapped in a thin local envelope
@@ -182,12 +214,21 @@ std crypto (remote).
 
 - **`assist-remote` (TEE):** always-on, attestable. Drafts replies. **Allow-list-gated:**
   pre-approved, no-local-data requests can auto-respond; everything else → `input-required`.
-- **`assist-client` (edge) — reads only in v1:** reads scoped + redacted local context for a
-  request, hands it to `assist-remote`. Full edge *execution* (acting on the machine) is v1.1.
+- **`assist-client` (edge):** runs Deep Mode locally for work that needs folders, files, or
+  local tools. It can hand a scoped + redacted result back to `assist-remote` for review and
+  mesh reply handling.
+
+**Modes:**
+
+| Mode | Runs where | Uses | Folder access | Default use |
+|---|---|---|---|---|
+| Quick Mode / TEE mode | `assist-remote` in the owner's CVM | Synced notes/docs, onboarding log memory, task history | No live folder access | Fast replies and "answer like the owner would" drafts based on prior logs. |
+| Deep Mode / local mode | `assist-client` on the owner's machine | Local folders/files/tools, local Claude/Codex-style execution, plus TEE context | Explicit, scoped, per request | Work that needs repo/file inspection or local tool execution. |
 
 **Two firm rules:**
-1. **Execution follows data.** No-local-data work lives entirely in the CVM (drafts anytime).
-   Local-data work needs the edge online to supply the slice.
+1. **Execution follows data.** Quick Mode work lives entirely in the CVM and uses only
+   synced/redacted memory. Deep Mode work runs on the local machine because that is where
+   folders, files, and local tools live.
 2. **Local-data requests always hit the inbox.** Reading any private folder is
    non-allow-listable — the locked Auto-handle guardrail. Never silent.
 
@@ -201,12 +242,15 @@ everything needs the human until the owner opts specific things in.
 
 | Data | Where | Notes |
 |---|---|---|
-| Raw local data (files, repos, `~/.claude`, `~/.codex`) | **Edge only** | Deny-by-default scope; `redact.js` masks secrets before anything leaves. |
+| Raw local agent logs (`~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`, `~/.opencode`, `~/.hermes`) | **Edge only** | Deny-by-default scope; `redact.js` masks secrets before anything leaves. |
+| Onboarding agent-log digest | Edge → **CVM** (redacted) | Optional after claim; compacted agent-log history from the approved roots, not raw logs or broad folder access. |
 | Local context slice for a request | Edge → **CVM** (redacted) | Only the minimal redacted slice needed to draft; on explicit in-the-moment approval. |
 | Notes/docs in "what it knows" | Synced into **CVM** (redacted) | So the assistant can draft from them anytime, asleep or awake. |
 | Assistant identity + keys | **CVM** | TEE-derived. |
 | Owner credential | **Edge** | Ed25519 key in OS keychain where possible (macOS Keychain via `security`), else `~/.alignos/owner.key` mode `0600`. Public key registered with `assist-remote`. |
-| Inbox / task source of truth | **CVM** (Deno KV); edge caches | Always-on; edge cache is for UI speed. |
+| Inbox / task source of truth | **CVM** `/data/tasks.json`; edge caches | Always-on; edge cache is for UI speed. Includes asks, drafts, approvals, and answers sent back to other users. |
+| Operational/audit event log | **CVM** `/data/events.jsonl` | Append-only events for boot, registration, gossip, routing, proxying, A2A approvals/follow-ups/declines, and failures. |
+| Peer/service discovery snapshot | **CVM** `/data/peers.json` | Last known node cards for `/peers` and `/services`, loaded at boot so discovery warms immediately after restart. |
 | Preference/decision signal | **Edge** `decisions.jsonl` | Kept for future RLHF; not consumed in v1. |
 | Anything to "outside" | Explicit opt-in only | Never silent. |
 
@@ -229,10 +273,10 @@ possible and keeps `assist-remote` a separate process.
 |---|---|---|
 | `src/mesh-client.js` | Owner-auth A2A client: `tasks/list`/`get`/`cancel`, finalizing/follow-up `message/send`, SSE `tasks/resubscribe`, signs the owner envelope. | new |
 | `src/inbox-store.js` | Edge cache of `Task`s + thin envelope + append-only `decisions.jsonl`. | new |
-| `src/scope.js` | Deny-by-default local-data permission store (folders + the Claude/Codex log paths), keyed on full path. | new |
+| `src/scope.js` | Deny-by-default local-data permission store for approved agent-log roots and folders, keyed on full path. | new |
 | `src/redact.js` | Deterministic secret scrubber — pure, never throws. | new |
-| `src/transcripts.js` | Read + compact `~/.claude` / `~/.codex` sessions into a redacted slice for grounding. | new |
-| `src/edge-reader.js` | For a local-data request: gather the scoped slice (`scope` + `redact` + `transcripts`) and hand it to `assist-remote`. | new |
+| `src/agent-logs.js` | Read + compact `~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`, `~/.opencode`, and `~/.hermes` into a redacted slice for grounding. | new |
+| `src/edge-reader.js` | For a local-data request: gather the scoped slice (`scope` + `redact` + `agent-logs`) and hand it to `assist-remote`. | new |
 | `src/identity.js` | Generate owner keypair; claim with the setup token; store key (keychain/`0600`); sign requests. | new |
 | `src/setup.js` | v1 connect flow: validate gateway URL + token, claim ownership, persist config, report health. | new |
 | `src/main.js` | Electron main; thin `ipcMain` handlers. | new |
@@ -252,8 +296,10 @@ possible and keeps `assist-remote` a separate process.
 | `node/ingress.ts` (edit) | Mount A2A + owner-authenticated routes (`tasks/list`, resolve turns, SSE); keep public mesh routes separate. |
 | `node/cards.ts` (edit) | Declare the owner `securityScheme` on the card. |
 
-**Durability:** `assist-remote` persists tasks + queue in **Deno KV**. `decisions.jsonl` stays
-on the edge.
+**Durability:** `assist-remote` persists tasks + queue in `/data/tasks.json` for the PoC
+(Deno KV remains the later swap behind the same `TaskStore` seam). Operational/audit events
+append to `/data/events.jsonl`; peer discovery snapshots write to `/data/peers.json`.
+`decisions.jsonl` stays on the edge.
 
 **Persisted state — `assist-client`:** config (non-secret) in `~/.alignos/config.json`;
 owner private key in OS keychain or `~/.alignos/owner.key` (`0600`); `inbox.json`,
@@ -268,7 +314,9 @@ alignos show <id>                      # request + draft (+ provenance)
 alignos approve <id>                   # send the reply
 alignos followup <id> --msg=-          # instruction on stdin; assistant re-drafts
 alignos decline <id> [--note]          # refuse
-alignos scope [list|allow|deny] <path> # local-data folders (incl. the Claude/Codex logs)
+alignos ask --mode quick <question>    # TEE answer from synced notes + log memory
+alignos ask --mode deep <question>     # local execution; prompts for scoped access as needed
+alignos scope [list|allow|deny] <path> # local-data folders / approved agent-log roots
 alignos serve                          # run the edge bridge headless (no window)
 ```
 
@@ -284,7 +332,7 @@ Named/revocable keys and per-device registration are deferred.
 ```
 peer's assistant ──message/send──► assist-remote
                                       │  triage (inbox.ts: Connections + Auto-handle)
-            on allow-list + no local data │ else / needs local data / novel
+            Quick Mode eligible       │ else / needs local data / novel
                        ▼                  │                 ▼
               auto-respond in CVM         │     needs local data?──yes──► task=auth-required
               (logged)                    │            │ no                   │ assist-client reads
@@ -331,9 +379,9 @@ Single-window state machine (daybook's `<section hidden>` swap; sticky action fo
 - **Preferences** (the control center): **Connections** (per-person auto-handle vs always-ask;
   anyone new = always ask), **Auto-handle** (toggles; the "reads a private folder → always
   ask" guardrail can't be switched on), **What your assistant knows** (notes/docs synced to
-  the private space — no profile in v1), **Folders it can read** (deny-by-default; built-in
-  offer for Claude Code / Codex logs; read-only, secrets masked, still needs in-the-moment
-  okay).
+  the private space plus optional onboarding log memory — no profile in v1), **Folders it can
+  read** (deny-by-default; no onboarding folder prompt; requested later only for Deep Mode,
+  read-only, secrets masked, still needs in-the-moment okay).
 
 **Visual design language — "Quiet"** (chosen direction; mockups in
 [`mockups/`](./mockups/), `5-quiet-complete.html` + `6-quiet-preferences.html` are the
@@ -352,12 +400,24 @@ reference):
 Two phases; **v1 connects to an already-running private space.** One-click provisioning is a
 later layer on the same connect path.
 
-**v1 — connect:**
-1. The node is deployed ahead of time via existing `tee-mesh` paths: local dev
-   `scripts/local-test.sh` (anvil; defaults to `http://localhost:8080`), or `npx phala deploy`
-   once by hand for a real CVM.
+**v1 — connect + seed memory:**
+1. For the demo, the node is already deployed by an operator via existing `tee-mesh` paths:
+   local dev `scripts/local-test.sh` (anvil; defaults to `http://localhost:8080`), or
+   `npx phala deploy` once by hand for a real CVM.
 2. First launch → enter the gateway URL + a **one-time setup token** the node prints at boot.
 3. `assist-client` generates an owner keypair and claims ownership with the token.
+4. After a successful claim, `assist-client` offers to use recent local agent logs from
+   `~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`, `~/.opencode`, and `~/.hermes`
+   to help the assistant understand the owner's work.
+5. If approved, the edge reads, compacts, and redacts those logs locally, then sends only the
+   bounded digest/corpus to `assist-remote` for storage in the CVM knowledge store.
+6. Onboarding does **not** ask for folder access. Folder/file access is reserved for Deep
+   Mode, where the TEE can suggest a scoped request and the edge enforces owner approval.
+
+For the first multi-user instantiation, assume three operator-provisioned private spaces:
+Albi claims one, Andrew claims one, and Shashank claims one. After claim, each instance
+participates in the same mesh, advertises its assistant surface, and enforces its own
+owner-auth key, inbox, preferences, and auto-handle policy.
 
 **Setup-token rules (PoC, explicit):**
 - **Single-use, 15-minute TTL**, minted at `assist-remote` boot (in logs / event log).
@@ -377,7 +437,7 @@ zero-touch. Needs Phala deploy auth (one-time key, or a bundled demo key).
 
 **Ships in v1:** Set up/Connect · Inbox · Review (trust layer) · All-clear · Handled-audit ·
 **Preferences (all four controls)**; the "Ask my assistant" loop incl. **local-data reads**
-(scope + redact + Claude/Codex logs, edge-reads-then-CVM-drafts); real A2A (v1 subset) with
+(scope + redact + approved agent logs, edge-reads-then-CVM-drafts); real A2A (v1 subset) with
 client-initiated SSE; Deno KV task store; owner-auth envelope; `decisions.jsonl` capture; CLI.
 
 **Deferred (seam in place):**
