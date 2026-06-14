@@ -1,0 +1,12 @@
+# Never bake runtime/owner data or secrets into the published image.
+tasks.json
+owner.json
+events.jsonl
+peers.json
+knowledge.json
+.codex
+.claude
+.env
+.env.*
+*.log
+node_modules

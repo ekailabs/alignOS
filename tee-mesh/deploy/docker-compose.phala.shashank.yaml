@@ -1,0 +1,41 @@
+# Codex-backed node for the shashank space. Same as docker-compose.phala.skill.yaml but pinned
+# to the codex image and with the codex/loop env wired in. Other nodes keep using skill.yaml so
+# they are unaffected by the codex switch.
+services:
+  node:
+    image: ghcr.io/sm86/alignos-node:codex1
+    ports: ["8080:8080"]
+    environment:
+      ALIGN_SELF_URL: ${ALIGN_SELF_URL}
+      ALIGN_MANIFEST_JSON: ${ALIGN_MANIFEST_JSON}
+      ALIGN_GOSSIP_INTERVAL: ${ALIGN_GOSSIP_INTERVAL:-5}
+      ALIGN_OWNER_HANDLE: ${ALIGN_OWNER_HANDLE}
+      ALIGN_OWNER_DISPLAY_NAME: ${ALIGN_OWNER_DISPLAY_NAME}
+      REGISTRY_RPC: ${REGISTRY_RPC}
+      REGISTRY_CONTRACT: ${REGISTRY_CONTRACT}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      DSTACK_SOCKET: /var/run/dstack.sock
+      ALIGN_OWNER_STATE: /data/owner.json
+      ALIGN_TASKS: /data/tasks.json
+      ALIGN_EVENTLOG: /data/events.jsonl
+      ALIGN_PEERS: /data/peers.json
+      ALIGN_KNOWLEDGE: /data/knowledge.json
+      # ── quick-mode owner-style refinement loop (Codex backend) ──
+      ALIGN_DRAFT_BACKEND: ${ALIGN_DRAFT_BACKEND:-codex}
+      ALIGN_LOOP: ${ALIGN_LOOP:-on}
+      ALIGN_LOOP_PASSES: ${ALIGN_LOOP_PASSES:-3}
+      CODEX_AUTH_JSON_B64: ${CODEX_AUTH_JSON_B64}
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - alignos-data:/data
+    networks: [default, agents]
+  skill:
+    image: ghcr.io/sm86/alignos-skill:latest
+    environment:
+      SKILL: ${SKILL}
+    networks: [agents]
+networks:
+  agents:
+    internal: true
+volumes:
+  alignos-data: {}
