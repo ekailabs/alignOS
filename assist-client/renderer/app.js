@@ -5,16 +5,16 @@ const $ = (id) => document.getElementById(id);
 // browser (lets the UI render for screenshots/dev without a running node).
 const MOCK = (() => {
   const tasks = [
-    { id: 't1', from: { display: "Mara's assistant" }, status: { state: 'input-required', timestamp: new Date().toISOString() },
+    { id: 't1', from: { display: "Andrew" }, status: { state: 'input-required', timestamp: new Date().toISOString() },
       history: [{ role: 'user', parts: [{ kind: 'text', text: 'Can you share a summary of the Q2 launch retro?' }] }],
       artifacts: [{ parts: [{ kind: 'text', text: "Here's the short version: the rollout hit its date, activation came in 12% over target, and the main friction was onboarding email deliverability.\n\nTop fix next quarter is a warm-up sequence for new sending domains." }] }] },
-    { id: 't2', from: { display: "Devon's assistant" }, status: { state: 'input-required', timestamp: new Date(Date.now() - 840000).toISOString() },
+    { id: 't2', from: { display: "Albi" }, status: { state: 'input-required', timestamp: new Date(Date.now() - 840000).toISOString() },
       history: [{ role: 'user', parts: [{ kind: 'text', text: "What's your availability for a 30-min sync Thursday?" }] }],
       artifacts: [{ parts: [{ kind: 'text', text: 'Thursday afternoon works — 2pm or 3:30pm your time. Want me to send an invite?' }] }] },
-    { id: 'h1', from: { display: "Priya's assistant" }, status: { state: 'completed', timestamp: new Date(Date.now() - 5400000).toISOString() },
+    { id: 'h1', from: { display: "Shashank" }, status: { state: 'completed', timestamp: new Date(Date.now() - 5400000).toISOString() },
       history: [{ role: 'user', parts: [{ kind: 'text', text: 'Do you approve reusing your onboarding checklist?' }] }],
       artifacts: [{ parts: [{ kind: 'text', text: 'Yes — go ahead and reuse it. Ping me if you adapt the security section.' }] }] },
-    { id: 'h2', from: { display: "Sam's assistant" }, status: { state: 'canceled', timestamp: new Date(Date.now() - 9000000).toISOString() },
+    { id: 'h2', from: { display: "Andrew" }, status: { state: 'canceled', timestamp: new Date(Date.now() - 9000000).toISOString() },
       history: [{ role: 'user', parts: [{ kind: 'text', text: 'Can you forward the investor deck?' }] }], artifacts: [] },
   ];
   const mockDrafts = {
@@ -130,7 +130,9 @@ const ago = (when) => {
 // (e.g. "ask-shashank"); fall back to a neutral label until the real peer identity is recorded.
 function whoFrom(t) {
   const d = (t && t.from && (t.from.display || t.from.handle)) || '';
-  if (!d || /^ask-/i.test(d) || /^https?:\/\//i.test(d)) return 'Someone';
+  const ask = d.match(/^ask-([a-z0-9-]+)$/i);
+  if (ask) return ask[1].split('-').filter(Boolean).map((p) => p[0].toUpperCase() + p.slice(1)).join(' ');
+  if (!d || /^https?:\/\//i.test(d)) return 'Someone';
   return d;
 }
 
@@ -326,15 +328,15 @@ function draftChip(d) {
 const _t = (mins) => new Date(Date.now() - mins * 60000).toISOString();
 const _ws = '/Users/sha/Documents/win26/ekai/alignOS';
 let _demoInbox = [
-  { id: 'demo-1', from: { display: 'Priya' }, status: { state: 'input-required', timestamp: _t(6) },
+  { id: 'demo-1', from: { display: 'Andrew' }, status: { state: 'input-required', timestamp: _t(6) },
     history: [{ role: 'user', parts: [{ kind: 'text', text: 'How would you design a rate limiter for a multi-tenant API?' }] }],
     _draft: { status: 'ready', cli: 'claude', workspace: _ws,
       text: 'I’d rate-limit per tenant, not per IP: a token bucket keyed on (tenant_id, route_class), with a small global ceiling so one noisy tenant can’t starve the rest. Keep counters in Redis with a sliding window and return Retry-After so clients back off cleanly. Start simple, add per-plan tiers once we see real traffic shapes.' } },
-  { id: 'demo-2', from: { display: 'Mara' }, status: { state: 'input-required', timestamp: _t(41) },
+  { id: 'demo-2', from: { display: 'Albi' }, status: { state: 'input-required', timestamp: _t(41) },
     history: [{ role: 'user', parts: [{ kind: 'text', text: 'Message queue or direct RPC for agent-to-agent calls?' }] }],
     _draft: { status: 'ready', cli: 'claude', workspace: _ws,
       text: 'Default to direct RPC where the caller needs an answer now: simpler to reason about and debug. Put a queue in front only for fan-out, retries, or genuinely async work. For our mesh, a thin RPC layer with idempotency keys covers most of it; reach for a queue when we actually hit backpressure.' } },
-  { id: 'demo-3', from: { display: 'Devon' }, status: { state: 'input-required', timestamp: _t(180) },
+  { id: 'demo-3', from: { display: 'Shashank' }, status: { state: 'input-required', timestamp: _t(180) },
     history: [{ role: 'user', parts: [{ kind: 'text', text: 'How should the agent routing layer scale as we add nodes?' }] }],
     _draft: { status: 'ready', cli: 'claude', workspace: _ws,
       text: 'Keep membership on-chain as the source of truth and gossip the rich cards, so any node resolves a peer without a central registry. Cache directories locally with short TTLs and keep routing decisions stateless so nodes scale horizontally. The hard part is liveness: lean on last-seen plus backoff rather than a heartbeat service.' } },
@@ -770,8 +772,11 @@ function wire() {
       if (isDemo(current.id)) {
         const t = demoTask(current.id);
         if (t) t._draft = { ...(t._draft || {}), status: 'ready', text: `(Revised per your note: ${msg})\n\n${(t._draft && t._draft.text) || ''}` };
-      } else { await api.followup(current.id, msg); }
-      toast('Follow-up sent.'); openReview(current.id);
+      } else {
+        const draftText = $('rv-draft-edit').hidden ? $('rv-draft').textContent : $('rv-draft-edit').value;
+        await api.followup(current.id, msg, draftText);
+      }
+      toast('Redrafting locally.'); openReview(current.id);
     } catch (e) { fail(e.message); }
   });
 }

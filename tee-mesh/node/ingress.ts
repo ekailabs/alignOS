@@ -203,11 +203,7 @@ async function handleAsk(
   if (mode === "deep") {
     const t = await createDeepModeTask(a2a.store, {
       question,
-      from: {
-        node_id: "ask-endpoint",
-        agent: `ask-${handle}`,
-        display: `ask-${handle}`,
-      },
+      from: taskFrom(body, { handle }),
     });
     return Response.json(t);
   }
@@ -222,11 +218,7 @@ async function handleAsk(
         parts: [{ kind: "text", text: question }],
         messageId: crypto.randomUUID(),
       },
-      from: {
-        node_id: "ask-endpoint",
-        agent: `ask-${handle}`,
-        display: `ask-${handle}`,
-      },
+      from: taskFrom(body, { handle }),
     },
   };
   return handleA2A(a2a, JSON.stringify(rpc), false);
@@ -274,6 +266,22 @@ interface ProviderRequestBody {
   mode?: unknown;
   owner?: unknown;
   url?: unknown;
+}
+
+function taskFrom(
+  body: Record<string, unknown>,
+  fallback: { handle: string; display?: string },
+): Task["from"] {
+  const from = body.from && typeof body.from === "object"
+    ? body.from as Record<string, unknown>
+    : {};
+  const display = String(
+    from.display ?? from.name ?? body.author ?? body.display ?? fallback.display ??
+      "External request",
+  ).trim();
+  const agent = String(from.agent ?? (fallback.handle ? `ask-${fallback.handle}` : "ask-endpoint"));
+  const node_id = String(from.node_id ?? "ask-endpoint");
+  return { node_id, agent, display };
 }
 
 async function requestProvider(
@@ -336,6 +344,11 @@ async function requestProvider(
       routedOwner = owner;
     }
     if (!peer || !owner) throw new Error(`unknown provider owner: ${owner}`);
+    task.from = {
+      node_id: peer.node_id,
+      agent: `ask-${owner}`,
+      display: peer.owner?.display_name ?? peer.owner?.handle ?? owner,
+    };
     target = new URL(
       `/ask-${owner}?mode=${encodeURIComponent(mode)}`,
       peer.gateway_url,
@@ -343,10 +356,18 @@ async function requestProvider(
   }
 
   try {
+    const self = ctx.getSelfCard();
+    const requester = self.owner
+      ? {
+        node_id: ctx.selfId,
+        agent: self.owner.handle ? `ask-${self.owner.handle}` : self.app_id,
+        display: self.owner.display_name ?? self.owner.handle ?? self.app_id,
+      }
+      : { node_id: ctx.selfId, agent: self.app_id, display: self.app_id };
     const resp = await fetch(target, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ question, mode }),
+      body: JSON.stringify({ question, mode, from: requester }),
       signal: AbortSignal.timeout(15_000),
     });
     const payload = await resp.json().catch(() => ({

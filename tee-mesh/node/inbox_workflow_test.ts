@@ -85,6 +85,9 @@ Deno.test("deep mode ask is buffered in the owner TEE inbox", async () => {
   if (buffered[0].id !== task.id) {
     throw new Error("buffered task id did not match response");
   }
+  if (buffered[0].from.display !== "External request") {
+    throw new Error(`expected external fallback, got ${buffered[0].from.display}`);
+  }
 });
 
 Deno.test("owner request forwards through the user TEE and persists provider response", async () => {
@@ -195,10 +198,12 @@ Deno.test("owner request auto-routes when author is omitted", async () => {
   await store.load();
 
   let providerUrl = "";
+  let providerBody: any = null;
   const realFetch = globalThis.fetch;
   globalThis.fetch =
-    (async (input: string | URL | Request) => {
+    (async (input: string | URL | Request, init?: RequestInit) => {
       providerUrl = String(input);
+      providerBody = JSON.parse(String(init?.body ?? "{}"));
       return Response.json({
         id: "provider-task",
         status: { state: "completed" },
@@ -274,6 +279,12 @@ Deno.test("owner request auto-routes when author is omitted", async () => {
     }
     if (providerUrl !== "https://andrew.example/ask-andrew?mode=quick") {
       throw new Error(`expected routed provider URL, got ${providerUrl}`);
+    }
+    if (task.from.display !== "Andrew") {
+      throw new Error(`expected local history to show Andrew, got ${task.from.display}`);
+    }
+    if (providerBody?.from?.display !== "Albi") {
+      throw new Error(`expected provider ask to carry Albi, got ${providerBody?.from?.display}`);
     }
   } finally {
     globalThis.fetch = realFetch;

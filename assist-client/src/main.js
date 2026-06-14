@@ -146,16 +146,10 @@ ipcMain.handle('approve', async (_e, { id, text }) => {
   drafts.remove(id);
   return t;
 });
-ipcMain.handle('followup', async (_e, { id, msg }) => {
-  const d = drafts.get(id);
-  if (d) {
-    const t = await mc.getTask(id);
-    const next = await draftLoop.draftTask(t, { onUpdate: notifyDraft, instruction: msg });
-    store.record({ taskId: id, verdict: 'followup', instruction: msg });
-    return { ...t, localDraft: next };
-  }
-  const t = await mc.followup(id, msg);
+ipcMain.handle('followup', async (_e, { id, msg, draftText }) => {
+  const t = await mc.getTask(id);
+  const next = await draftLoop.draftTask(t, { onUpdate: notifyDraft, instruction: msg, currentDraft: draftText });
   store.record({ taskId: id, verdict: 'followup', instruction: msg });
-  return t;
+  return { ...t, localDraft: next };
 });
 ipcMain.handle('decline', async (_e, { id, note }) => { const t = await mc.decline(id, note); store.record({ taskId: id, verdict: 'decline', note }); return t; });

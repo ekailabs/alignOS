@@ -21,6 +21,6 @@ contextBridge.exposeInMainWorld('alignos', {
   draftGet: (id) => ipcRenderer.invoke('draft-get', { id }),
   redraft: (id) => ipcRenderer.invoke('redraft', { id }),
   onDraftUpdated: (cb) => ipcRenderer.on('draft-updated', (_e, payload) => cb(payload)),
-  followup: (id, msg) => ipcRenderer.invoke('followup', { id, msg }),
+  followup: (id, msg, draftText) => ipcRenderer.invoke('followup', { id, msg, draftText }),
   decline: (id, note) => ipcRenderer.invoke('decline', { id, note }),
 });

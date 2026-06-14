@@ -46,6 +46,18 @@ const onUpdate = (id) => updates.push(id);
   assert.strictEqual(seenOpts.currentDraft, 'reply-a');
   assert.strictEqual(store.get('a').text, 'warmer reply');
 
+  // follow-up can override the stored draft with the currently edited textarea text
+  await loop.draftTask(tasks[0], {
+    instruction: 'Use the edited version.',
+    currentDraft: 'edited in the review textarea',
+    runDraft: async (_t, opts) => {
+      seenOpts = opts;
+      return { text: 'edited reply', cli: 'claude' };
+    },
+  });
+  assert.strictEqual(seenOpts.currentDraft, 'edited in the review textarea');
+  assert.strictEqual(store.get('a').text, 'edited reply');
+
   // error path: stored as error and retried on the next sweep
   store.remove('a'); store.remove('b');
   const badDraft = async () => { throw new Error('cli blew up'); };
