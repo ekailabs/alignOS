@@ -16,7 +16,11 @@ contextBridge.exposeInMainWorld('alignos', {
   handled: () => ipcRenderer.invoke('handled'),
   show: (id) => ipcRenderer.invoke('show', { id }),
   askProvider: (payload) => ipcRenderer.invoke('ask-provider', payload),
-  approve: (id) => ipcRenderer.invoke('approve', { id }),
+  approve: (id, text) => ipcRenderer.invoke('approve', { id, text }),
+  drafts: () => ipcRenderer.invoke('drafts'),
+  draftGet: (id) => ipcRenderer.invoke('draft-get', { id }),
+  redraft: (id) => ipcRenderer.invoke('redraft', { id }),
+  onDraftUpdated: (cb) => ipcRenderer.on('draft-updated', (_e, payload) => cb(payload)),
   followup: (id, msg) => ipcRenderer.invoke('followup', { id, msg }),
   decline: (id, note) => ipcRenderer.invoke('decline', { id, note }),
 });

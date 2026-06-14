@@ -8,8 +8,18 @@ const cfg = require('./config');
 const store = require('./inbox-store');
 const scope = require('./scope');
 const agentLogs = require('./agent-logs');
+const drafts = require('./draft-store');
+const draftLoop = require('./draft-loop');
 
 let win;
+
+function notifyDraft(taskId) {
+  if (win && !win.isDestroyed()) win.webContents.send('draft-updated', { taskId });
+}
+function startDraftLoop() {
+  if (!cfg.load().url) return; // not connected yet — started again after setup
+  draftLoop.start({ listInbox: () => mc.inbox(), onUpdate: notifyDraft });
+}
 function createWindow() {
   win = new BrowserWindow({
     width: 720, height: 880, minWidth: 560, minHeight: 600,
@@ -21,6 +31,7 @@ function createWindow() {
     },
   });
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  startDraftLoop();
 }
 
 app.whenReady().then(createWindow);
@@ -85,6 +96,7 @@ ipcMain.handle('setup', async (_e, { url, token }) => {
   const clean = String(url).replace(/\/$/, '');
   cfg.save({ url: clean });
   await require('./identity').claim(clean, token || '');
+  startDraftLoop();
   return { ok: true };
 });
 // Demo expertise: hardcoded per-space in <home>/personas.json so the three demo URLs are pinned
@@ -120,6 +132,19 @@ ipcMain.handle('inbox', async () => mc.inbox());
 ipcMain.handle('handled', async () => mc.handled());
 ipcMain.handle('show', async (_e, { id }) => mc.getTask(id));
 ipcMain.handle('ask-provider', async (_e, payload) => mc.requestProvider(payload || {}));
-ipcMain.handle('approve', async (_e, { id }) => { const t = await mc.approve(id); store.record({ taskId: id, verdict: 'approve' }); return t; });
+ipcMain.handle('drafts', async () => drafts.all());
+ipcMain.handle('draft-get', async (_e, { id }) => drafts.get(id));
+ipcMain.handle('redraft', async (_e, { id }) => {
+  const t = await mc.getTask(id);
+  return draftLoop.draftTask(t, { onUpdate: notifyDraft });
+});
+ipcMain.handle('approve', async (_e, { id, text }) => {
+  const d = drafts.get(id);
+  const reply = (text != null ? text : (d && d.status === 'ready' ? d.text : '')) || '';
+  const t = await mc.approve(id, reply);
+  store.record({ taskId: id, verdict: 'approve' });
+  drafts.remove(id);
+  return t;
+});
 ipcMain.handle('followup', async (_e, { id, msg }) => { const t = await mc.followup(id, msg); store.record({ taskId: id, verdict: 'followup', instruction: msg }); return t; });
 ipcMain.handle('decline', async (_e, { id, note }) => { const t = await mc.decline(id, note); store.record({ taskId: id, verdict: 'decline', note }); return t; });
