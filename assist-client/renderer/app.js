@@ -83,7 +83,7 @@ const MOCK = (() => {
     }),
     askProvider: async ({ question, owner }) => ({
       status: { state: 'completed' },
-      artifacts: [{ parts: [{ kind: 'text', text: `(${owner}) Good question — “${question}”. Here’s how I’d think about it…` }] }],
+      artifacts: [{ parts: [{ kind: 'text', text: `(${owner}) Good question: “${question}”. Here’s how I’d think about it…` }] }],
     }),
     pickFolder: async () => '/Users/you/Documents/example',
     inbox: async () => tasks.filter((t) => ['input-required', 'auth-required'].includes(t.status.state)),
@@ -126,6 +126,13 @@ const ago = (when) => {
   if (s < 86400) return Math.floor(s / 3600) + 'h';
   return Math.floor(s / 86400) + 'd';
 };
+// Requester name. The node tags unauthenticated public-ask requests with the endpoint
+// (e.g. "ask-shashank"); fall back to a neutral label until the real peer identity is recorded.
+function whoFrom(t) {
+  const d = (t && t.from && (t.from.display || t.from.handle)) || '';
+  if (!d || /^ask-/i.test(d) || /^https?:\/\//i.test(d)) return 'Someone';
+  return d;
+}
 
 const SECTIONS = ['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded', 'folders', 'inbox', 'agent-cards', 'ask', 'allclear', 'review', 'handled', 'prefs', 'error'];
 const OUTCOME = { completed: 'Sent', canceled: 'Rejected', rejected: 'Rejected' };
@@ -144,7 +151,7 @@ const QUOTES = [
   '"Talent wins games, but teamwork wins championships." — Michael Jordan',
   '"None of us is as smart as all of us." — Ken Blanchard',
   '"Coordination is just disagreement that learned some manners."',
-  '"An assistant aligned with everyone is aligned with no one — so we start with you."',
+  '"An assistant aligned with everyone is aligned with no one, so we start with you."',
   '"A computer once beat me at chess, but it was no match for me at kickboxing." — Emo Philips',
 ];
 const SEED_SOURCES = [
@@ -320,7 +327,7 @@ async function loadInbox() {
     const draftMap = api.drafts ? await api.drafts().catch(() => ({})) : {};
     const ul = $('inbox-list'); ul.innerHTML = '';
     for (const t of tasks) {
-      const who = (t.from && t.from.display) || 'someone';
+      const who = whoFrom(t);
       const li = document.createElement('li');
       li.className = 'row';
       li.innerHTML = `<span class="av">${esc(initial(who))}</span><span class="rmain">` +
@@ -350,7 +357,7 @@ async function loadHandled() {
     const ul = $('handled-list'); ul.innerHTML = '';
     $('handled-empty').hidden = tasks.length > 0;
     for (const t of tasks) {
-      const who = (t.from && t.from.display) || 'someone';
+      const who = whoFrom(t);
       const out = OUTCOME[t.status.state] || t.status.state;
       const li = document.createElement('li');
       li.className = 'row';
@@ -478,7 +485,7 @@ async function loadAgentCards() {
       return true;
     });
     $('cards-sub').textContent = others.length
-      ? 'Reach any of them directly — each replies in its owner’s voice.'
+      ? 'Reach any of them directly. Each replies in its owner’s voice.'
       : 'No other assistants are reachable in this space yet.';
     $('cards-service-list').innerHTML = others.map(renderServiceCard).join('');
     hydrateAvatars($('cards-service-list'));
@@ -516,7 +523,7 @@ async function sendAsk() {
   try {
     const res = await api.askProvider({ question: q, mode: 'quick', owner: _askTarget.handle });
     const reply = taskReplyText(res);
-    $('ask-reply').textContent = reply || `Sent to ${_askTarget.name}. Their assistant is drafting a reply — check back shortly.`;
+    $('ask-reply').textContent = reply || `Sent to ${_askTarget.name}. Their assistant is drafting a reply. Check back shortly.`;
     $('ask-reply').classList.toggle('ask-reply-empty', !reply);
     $('ask-reply').hidden = false; $('ask-reply-lbl').hidden = false;
     $('ask-prov').textContent = `Answered by ${_askTarget.name}’s assistant in quick mode, inside their private space.`;
