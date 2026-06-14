@@ -5,6 +5,8 @@
 //   alignos status                     connection health
 //   alignos inbox                      requests that need you
 //   alignos show <id>                  one request + the drafted reply
+//   alignos draft <id>                 draft a reply locally with claude/codex and print it
+//   alignos watch                      run the drafting loop headless for all incoming requests
 //   alignos approve <id>               send the reply
 //   alignos followup <id> --msg <t>    ask the assistant to revise (--msg - reads stdin)
 //   alignos decline <id> [--note <t>]  refuse
@@ -53,7 +55,7 @@ async function resolveId(s) {
 async function main() {
   const cmd = argv[0];
   let id = argv[1] && !argv[1].startsWith('--') ? argv[1] : undefined;
-  if (['show', 'approve', 'followup', 'decline'].includes(cmd)) id = await resolveId(id);
+  if (['show', 'approve', 'followup', 'decline', 'draft'].includes(cmd)) id = await resolveId(id);
   switch (cmd) {
     case 'setup': {
       const url = (flag('--url') || (argv[1] && !argv[1].startsWith('--') ? argv[1] : '')).replace(/\/$/, '');
@@ -139,8 +141,25 @@ async function main() {
       console.log('declined.  task is now', t.status.state);
       break;
     }
+    case 'draft': {
+      if (!id) throw new Error('usage: alignos draft <id>');
+      const loop = require('../src/draft-loop');
+      const t = await mc.getTask(id);
+      process.stderr.write('drafting locally…\n');
+      const d = await loop.draftTask(t);
+      if (d.status !== 'ready') throw new Error(d.error || 'draft failed');
+      console.log(d.text);
+      break;
+    }
+    case 'watch': {
+      const loop = require('../src/draft-loop');
+      console.error('watching inbox — drafting incoming requests (Ctrl-C to stop)…');
+      loop.start({ listInbox: () => mc.inbox(), onUpdate: (tid) => console.error('  drafted', tid.slice(0, 8)) });
+      await new Promise(() => {}); // run until interrupted
+      break;
+    }
     default:
-      console.log('alignos: setup | status | ask --owner <handle> <question> | mcp | inbox | show <id> | approve <id> | followup <id> --msg <t> | decline <id> [--note <t>]');
+      console.log('alignos: setup | status | ask --owner <handle> <question> | mcp | inbox | show <id> | draft <id> | watch | approve <id> | followup <id> --msg <t> | decline <id> [--note <t>]');
   }
 }
 
