@@ -45,7 +45,8 @@ body{background:var(--bg);font-family:var(--sans);color:var(--ink);-webkit-font-
 .src.on{color:var(--green)} .src.on .sm{border-color:var(--green);background:var(--green);color:#fff}
 .src.none{opacity:.45;text-decoration:line-through}
 /* tagline + privacy transparency */
-.tagline{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:-6px 0 14px}
+.tagline{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:-6px 0 2px}
+.tagline2{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:0 0 16px}
 .leaves{text-align:left;max-width:380px;margin:6px auto 0;border:1px solid var(--line);border-radius:10px;padding:13px 15px;background:#F6F4ED}
 .leaves-row{font-size:12.5px;line-height:1.5;color:#403B33;display:flex;gap:8px;align-items:baseline}
 .leaves-row+.leaves-row{margin-top:5px}
