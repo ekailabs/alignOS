@@ -17,4 +17,19 @@ function save(patch) {
   return next;
 }
 
-module.exports = { DIR, CONFIG, ensureDir, load, save };
+// Agent-drafting settings with defaults applied. Read by agent-runner and draft-loop so the
+// defaults live in exactly one place. Override any field via the `agent` block in config.json.
+function agentConfig() {
+  return {
+    cli: 'auto',          // 'auto' | 'claude' | 'codex'  (auto prefers claude)
+    workspace: null,      // absolute path; null → first granted folder, else cwd
+    timeoutMs: 120000,
+    concurrency: 1,
+    autoDraft: true,
+    claudeArgs: null,     // override flags (prompt is always appended last)
+    codexArgs: null,
+    ...(load().agent || {}),
+  };
+}
+
+module.exports = { DIR, CONFIG, ensureDir, load, save, agentConfig };
