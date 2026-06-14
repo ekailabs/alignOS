@@ -26,6 +26,7 @@ export interface Task {
   artifacts: Artifact[];
   history: Message[];
   from: { node_id?: string; agent?: string; display?: string };
+  mode?: "quick" | "deep";
   created_at: string;
   updated_at: string;
 }

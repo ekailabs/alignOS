@@ -219,6 +219,7 @@ async function handleAsk(
         messageId: crypto.randomUUID(),
       },
       from: taskFrom(body, { handle }),
+      mode: "quick",
     },
   };
   return handleA2A(a2a, JSON.stringify(rpc), false);
@@ -248,6 +249,7 @@ async function createDeepModeTask(
     artifacts: [],
     history: [ask],
     from: opts.from,
+    mode: "deep",
     created_at: now,
     updated_at: now,
   };
@@ -308,9 +310,10 @@ async function requestProvider(
     }],
     from: {
       node_id: ctx.selfId,
-      agent: "assist-client",
+      agent: "assist-local",
       display: "You",
     },
+    mode: mode === "deep" ? "deep" : "quick",
     created_at: now,
     updated_at: now,
   };

@@ -87,6 +87,30 @@ npx phala cvms restart <vm_uuid>     # deploy does NOT restart containers — yo
 ```
 Find nodes: `npx phala nodes list --json`. Find your CVMs: `npx phala cvms list`.
 
+### Codex-backed Quick Mode nodes
+
+The live demo Albi, Andrew, and Shashank CVMs use the Codex-backed image
+`ghcr.io/sm86/alignos-node:codex1` plus:
+
+```
+ALIGN_DRAFT_BACKEND=codex
+ALIGN_LOOP=on
+ALIGN_LOOP_PASSES=3
+CODEX_AUTH_JSON_B64=<base64 of ~/.codex/auth.json>
+```
+
+Use the matching per-owner compose file when upgrading those nodes:
+
+```
+npx phala deploy --cvm-id <app_id> -c docker-compose.phala.albi.yaml -e .env.albi --wait
+npx phala deploy --cvm-id <app_id> -c docker-compose.phala.andrew.yaml -e .env.andrew --wait
+npx phala deploy --cvm-id <app_id> -c docker-compose.phala.shashank.yaml -e .env.shashank --wait
+npx phala cvms restart <app_id>
+```
+
+`CODEX_AUTH_JSON_B64` is a secret. Keep it only in gitignored env files or Phala/dstack
+secrets.
+
 ## Verify
 ```
 URL=https://<app_id>-8080.dstack-pha-prod7.phala.network

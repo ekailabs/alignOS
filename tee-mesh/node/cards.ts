@@ -56,7 +56,7 @@ export interface ServiceDescriptor {
   };
   deep_mode: {
     runs_where: "owner-edge";
-    via: "assist-client";
+    via: "assist-local";
     folder_access: "explicit-per-request";
   };
   capabilities: {
@@ -93,7 +93,7 @@ export function serviceFromCard(
     },
     deep_mode: {
       runs_where: "owner-edge",
-      via: "assist-client",
+      via: "assist-local",
       folder_access: "explicit-per-request",
     },
     capabilities: {
@@ -101,7 +101,7 @@ export function serviceFromCard(
       quick:
         "TEE-hosted replies from synced notes, onboarding log memory, and task history.",
       deep:
-        "Local-machine execution via assist-client with scoped owner approval.",
+        "Local-machine execution via assist-local with scoped owner approval.",
     },
     agents: card.agents,
   };

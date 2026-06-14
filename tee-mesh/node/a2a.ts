@@ -125,6 +125,7 @@ async function onMessageSend(ctx: A2ACtx, params: any, owner: boolean): Promise<
     artifacts: [],
     history: [msg],
     from: { node_id: params?.from?.node_id, agent: params?.from?.agent, display: params?.from?.display },
+    mode: params?.mode === "deep" ? "deep" : "quick",
     created_at: now,
     updated_at: now,
   };

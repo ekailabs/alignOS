@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Local 3-node alignOS mesh on anvil. No docker, no TEE — proves the gossip + registry
 # logic end to end. Nodes run in local-identity mode with user-name ALIGN_NODE_IDs.
+# Set KEEP=1 to leave the mesh running after the checks pass (for demos/recording).
 set -euo pipefail
+KEEP="${KEEP:-}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DENO="${DENO:-$(command -v deno || true)}"
@@ -103,3 +105,14 @@ echo "== node count check =="
 N=$(curl -s http://localhost:8081/peers | "$DENO" eval 'console.log(JSON.parse(await new Response(Deno.stdin.readable).text()).length)')
 echo "  Albi sees $N nodes (expect 3)"
 test "$N" = "3" && echo "PASS" || { echo "FAIL"; exit 1; }
+
+if [ -n "$KEEP" ]; then
+  echo
+  echo "== KEEP=1: mesh staying up (Ctrl-C to stop) =="
+  echo "  albi      http://localhost:8081/dashboard"
+  echo "  andrew    http://localhost:8082/dashboard"
+  echo "  shashank  http://localhost:8083/dashboard"
+  echo "  e2e:      bash $ROOT/scripts/e2e-routing.sh http://localhost:8081"
+  echo "  logs:     $WORK"
+  wait
+fi

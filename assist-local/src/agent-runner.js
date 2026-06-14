@@ -82,7 +82,7 @@ function flagsFor(kind, agent) {
 function runDraft(task, { workspace, agent = cfg.agentConfig(), timeoutMs, instruction, currentDraft } = {}) {
   return new Promise((resolve, reject) => {
     const cli = detectCli(agent);
-    if (!cli) return reject(new Error('No local agent CLI found — install Claude Code (`claude`) or Codex (`codex`).'));
+    if (!cli) return reject(new Error('No local agent CLI found. Install Claude Code (`claude`) or Codex (`codex`).'));
     const args = flagsFor(cli.kind, agent);
     // No shell — args are read-only flags only; the prompt goes on stdin (no injection surface).
     const child = spawn(cli.cmd, args, { cwd: workspace || process.cwd(), env: process.env });

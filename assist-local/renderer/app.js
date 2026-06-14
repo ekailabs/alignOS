@@ -10,10 +10,10 @@ const MOCK = (() => {
       artifacts: [{ parts: [{ kind: 'text', text: "Here's the short version: the rollout hit its date, activation came in 12% over target, and the main friction was onboarding email deliverability.\n\nTop fix next quarter is a warm-up sequence for new sending domains." }] }] },
     { id: 't2', from: { display: "Albi" }, status: { state: 'input-required', timestamp: new Date(Date.now() - 840000).toISOString() },
       history: [{ role: 'user', parts: [{ kind: 'text', text: "What's your availability for a 30-min sync Thursday?" }] }],
-      artifacts: [{ parts: [{ kind: 'text', text: 'Thursday afternoon works — 2pm or 3:30pm your time. Want me to send an invite?' }] }] },
+      artifacts: [{ parts: [{ kind: 'text', text: 'Thursday afternoon works. 2pm or 3:30pm your time? Want me to send an invite?' }] }] },
     { id: 'h1', from: { display: "Shashank" }, status: { state: 'completed', timestamp: new Date(Date.now() - 5400000).toISOString() },
       history: [{ role: 'user', parts: [{ kind: 'text', text: 'Do you approve reusing your onboarding checklist?' }] }],
-      artifacts: [{ parts: [{ kind: 'text', text: 'Yes — go ahead and reuse it. Ping me if you adapt the security section.' }] }] },
+      artifacts: [{ parts: [{ kind: 'text', text: 'Yes, go ahead and reuse it. Ping me if you adapt the security section.' }] }] },
     { id: 'h2', from: { display: "Andrew" }, status: { state: 'canceled', timestamp: new Date(Date.now() - 9000000).toISOString() },
       history: [{ role: 'user', parts: [{ kind: 'text', text: 'Can you forward the investor deck?' }] }], artifacts: [] },
   ];
@@ -130,9 +130,9 @@ const ago = (when) => {
 // (e.g. "ask-shashank"); fall back to a neutral label until the real peer identity is recorded.
 function whoFrom(t) {
   const d = (t && t.from && (t.from.display || t.from.handle)) || '';
-  const ask = d.match(/^ask-([a-z0-9-]+)$/i);
-  if (ask) return ask[1].split('-').filter(Boolean).map((p) => p[0].toUpperCase() + p.slice(1)).join(' ');
-  if (!d || /^https?:\/\//i.test(d)) return 'Someone';
+  // "ask-<handle>" / "ask-endpoint" is the RECIPIENT's endpoint, not the sender — so it must not
+  // be shown as the asker. Only a real, provided identity is shown; otherwise "Someone".
+  if (!d || /^ask-/i.test(d) || /^https?:\/\//i.test(d)) return 'Someone';
   return d;
 }
 
@@ -149,14 +149,14 @@ function setView(v) {
 }
 
 const QUOTES = [
-  '"Alone we can do so little; together we can do so much." — Helen Keller',
-  '"Coming together is a beginning; keeping together is progress; working together is success." — Henry Ford',
-  '"The strength of the team is each member; the strength of each member is the team." — Phil Jackson',
-  '"Talent wins games, but teamwork wins championships." — Michael Jordan',
-  '"None of us is as smart as all of us." — Ken Blanchard',
+  '"Alone we can do so little; together we can do so much." - Helen Keller',
+  '"Coming together is a beginning; keeping together is progress; working together is success." - Henry Ford',
+  '"The strength of the team is each member; the strength of each member is the team." - Phil Jackson',
+  '"Talent wins games, but teamwork wins championships." - Michael Jordan',
+  '"None of us is as smart as all of us." - Ken Blanchard',
   '"Coordination is just disagreement that learned some manners."',
   '"An assistant aligned with everyone is aligned with no one, so we start with you."',
-  '"A computer once beat me at chess, but it was no match for me at kickboxing." — Emo Philips',
+  '"A computer once beat me at chess, but it was no match for me at kickboxing." - Emo Philips',
 ];
 const SEED_SOURCES = [
   ['claude', 'Claude'],
@@ -328,15 +328,15 @@ function draftChip(d) {
 const _t = (mins) => new Date(Date.now() - mins * 60000).toISOString();
 const _ws = '/Users/sha/Documents/win26/ekai/alignOS';
 let _demoInbox = [
-  { id: 'demo-1', from: { display: 'Andrew' }, status: { state: 'input-required', timestamp: _t(6) },
+  { id: 'demo-1', mode: 'quick', from: { display: 'Andrew' }, status: { state: 'input-required', timestamp: _t(6) },
     history: [{ role: 'user', parts: [{ kind: 'text', text: 'How would you design a rate limiter for a multi-tenant API?' }] }],
     _draft: { status: 'ready', cli: 'claude', workspace: _ws,
       text: 'I’d rate-limit per tenant, not per IP: a token bucket keyed on (tenant_id, route_class), with a small global ceiling so one noisy tenant can’t starve the rest. Keep counters in Redis with a sliding window and return Retry-After so clients back off cleanly. Start simple, add per-plan tiers once we see real traffic shapes.' } },
-  { id: 'demo-2', from: { display: 'Albi' }, status: { state: 'input-required', timestamp: _t(41) },
+  { id: 'demo-2', mode: 'quick', from: { display: 'Albi' }, status: { state: 'input-required', timestamp: _t(41) },
     history: [{ role: 'user', parts: [{ kind: 'text', text: 'Message queue or direct RPC for agent-to-agent calls?' }] }],
     _draft: { status: 'ready', cli: 'claude', workspace: _ws,
       text: 'Default to direct RPC where the caller needs an answer now: simpler to reason about and debug. Put a queue in front only for fan-out, retries, or genuinely async work. For our mesh, a thin RPC layer with idempotency keys covers most of it; reach for a queue when we actually hit backpressure.' } },
-  { id: 'demo-3', from: { display: 'Shashank' }, status: { state: 'input-required', timestamp: _t(180) },
+  { id: 'demo-3', mode: 'deep', from: { display: 'Shashank' }, status: { state: 'input-required', timestamp: _t(180) },
     history: [{ role: 'user', parts: [{ kind: 'text', text: 'How should the agent routing layer scale as we add nodes?' }] }],
     _draft: { status: 'ready', cli: 'claude', workspace: _ws,
       text: 'Keep membership on-chain as the source of truth and gossip the rich cards, so any node resolves a peer without a central registry. Cache directories locally with short TTLs and keep routing decisions stateless so nodes scale horizontally. The hard part is liveness: lean on last-seen plus backoff rather than a heartbeat service.' } },
@@ -361,6 +361,18 @@ function setTabUI(tab) {
   if (th) th.classList.toggle('on', tab === 'history');
   if ($('inbox-ask')) $('inbox-ask').hidden = tab !== 'inbox';
 }
+// Quick = auto-answered in the TEE; Deep = needs local file access + approval. Shown as a chip.
+function taskMode(t) {
+  const m = (t && (t.mode || (t.metadata && t.metadata.mode)) || '').toString().toLowerCase();
+  if (m === 'deep' || m === 'quick') return m;
+  // Infer for nodes that don't persist mode yet: Deep Mode buffers a task as auth-required;
+  // everything else is quick (auto-answered in the TEE).
+  return (t && t.status && t.status.state === 'auth-required') ? 'deep' : 'quick';
+}
+function modeTag(t) {
+  const m = taskMode(t);
+  return m ? `<span class="mode-tag ${m}">${m}</span>` : '';
+}
 function renderRows(tasks, draftMap, kind) {
   const ul = $('inbox-list'); ul.innerHTML = '';
   for (const t of tasks) {
@@ -372,7 +384,7 @@ function renderRows(tasks, draftMap, kind) {
     const li = document.createElement('li');
     li.className = 'row';
     li.innerHTML = `<span class="av">${esc(initial(who))}</span><span class="rmain">` +
-      `<span class="rtop"><span class="who">${esc(who)}</span>${right}</span>` +
+      `<span class="rtop"><span class="who">${esc(who)}</span>${modeTag(t)}${right}</span>` +
       `<span class="ask">${esc(text(t.history && t.history[0] && t.history[0].parts))}</span></span>`;
     li.addEventListener('click', () => openReview(t.id));
     ul.appendChild(li);
@@ -633,7 +645,7 @@ function renderDraft(t, d, who) {
   if (d && d.status === 'error') {
     editEl.hidden = true; staticEl.hidden = false;
     $('rv-lbl').textContent = 'Draft';
-    staticEl.textContent = remote || '(local draft failed — Redraft to try again)';
+    staticEl.textContent = remote || '(local draft failed. Redraft to try again.)';
     $('rv-prov').textContent = `Local draft failed: ${d.error || 'unknown error'}`;
     $('rv-approve').disabled = !remote;
     return;
@@ -651,7 +663,11 @@ async function openReview(id) {
     const who = whoFrom(t);
     $('rv-who').textContent = who;
     $('rv-age').textContent = ago(t.status.timestamp);
-    $('rv-chip').hidden = false; // v1: every known peer shows as a connection
+    const _m = taskMode(t); // show quick/deep instead of a generic "connected" chip when known
+    const _chip = $('rv-chip');
+    if (_m) { _chip.textContent = _m === 'deep' ? 'deep mode' : 'quick mode'; _chip.className = `mode-tag ${_m}`; }
+    else { _chip.textContent = 'Connected'; _chip.className = 'chip'; }
+    _chip.hidden = false;
     $('rv-ask').textContent = text(t.history && t.history[0] && t.history[0].parts);
     $('rv-compose').hidden = true; $('rv-compose-text').value = ''; $('rv-followup').classList.remove('on');
 

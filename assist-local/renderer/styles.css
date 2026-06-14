@@ -189,6 +189,9 @@ body.onb .setup{padding:48px 36px}
 .rv-from b{font-size:14px;color:var(--ink)}
 .rv-age{margin-left:auto}
 .chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--green);background:var(--green-soft);border-radius:999px;padding:3px 8px}
+.mode-tag{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 7px;white-space:nowrap;flex:none}
+.mode-tag.quick{color:var(--green);background:var(--green-soft)}
+.mode-tag.deep{color:var(--accent);background:var(--accent-soft)}
 .dchip{font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:2px 7px;white-space:nowrap}
 .dchip.ready{color:var(--green);background:var(--green-soft)}
 .dchip.drafting{color:#8A6D1F;background:#F6EFD6}

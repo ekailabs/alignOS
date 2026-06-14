@@ -1,5 +1,5 @@
-# Codex-backed node for the Shashank space. Albi and Andrew have matching per-owner compose
-# files; use docker-compose.phala.skill.yaml only for the generic non-Codex skill runtime.
+# Codex-backed node for the Andrew space. Same runtime path as the Shashank Codex
+# deployment, but selected for Andrew's confidential-compute/privacy/security skill.
 services:
   node:
     image: ghcr.io/sm86/alignos-node:codex1
@@ -19,7 +19,7 @@ services:
       ALIGN_EVENTLOG: /data/events.jsonl
       ALIGN_PEERS: /data/peers.json
       ALIGN_KNOWLEDGE: /data/knowledge.json
-      # ── quick-mode owner-style refinement loop (Codex backend) ──
+      # quick-mode owner-style refinement loop (Codex backend)
       ALIGN_DRAFT_BACKEND: ${ALIGN_DRAFT_BACKEND:-codex}
       ALIGN_LOOP: ${ALIGN_LOOP:-on}
       ALIGN_LOOP_PASSES: ${ALIGN_LOOP_PASSES:-3}
