@@ -90,6 +90,18 @@ const SEED_SOURCES = [
 let current = null;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 2200); }
 function fail(msg) { $('error-text').textContent = msg || 'Unknown error'; setView('error'); }
+function setupErrorMessage(e) {
+  const msg = String(e && e.message ? e.message : e || 'Setup failed')
+    .replace(/^Error invoking remote method 'setup':\s*/i, '')
+    .replace(/^Error:\s*/i, '');
+  if (/already claimed by another device/i.test(msg)) {
+    return 'This private space is running an older node. Ask the operator to upgrade and restart the TEE node, then connect again.';
+  }
+  if (/socket hang up|econnreset/i.test(msg)) {
+    return 'Could not reach the private space. Check that the URL is complete and the TEE node is running.';
+  }
+  return msg;
+}
 
 // Backend connection indicator (header) — polls the node's liveness.
 function setConn(ok) {
@@ -287,7 +299,7 @@ function wire() {
     const url = normalizeBackendUrl($('connect-url').value);
     if (!url) { $('connect-err').textContent = 'Enter a valid space address.'; $('connect-err').hidden = false; return; }
     try { await api.setup({ url }); $('connect-err').hidden = true; setView('consent'); }
-    catch (e) { $('connect-err').textContent = e.message; $('connect-err').hidden = false; }
+    catch (e) { $('connect-err').textContent = setupErrorMessage(e); $('connect-err').hidden = false; }
   });
   $('consent-approve').addEventListener('click', seedAndEnter);
   $('consent-skip').addEventListener('click', loadInbox);
