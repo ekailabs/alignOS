@@ -44,8 +44,8 @@ function buildPrompt(
   return { system, user };
 }
 
-async function infer(task: Task, instruction: string): Promise<string> {
-  const { system, user } = buildPrompt(task, instruction);
+// Generic single completion across the configured backends. Throws if none produce output.
+export async function complete(system: string, user: string): Promise<string> {
   const order = BACKEND === "auto" ? ["claude", "api"] : [BACKEND];
   for (const b of order) {
     try {
@@ -70,10 +70,19 @@ async function infer(task: Task, instruction: string): Promise<string> {
       if (b === "api" && MODEL_KEY) return (await callApi(system, user)).trim();
     } catch (_e) { /* fall through to the next backend */ }
   }
-  const ask = textOf(task.history[0]?.parts ?? []);
-  return `Thanks for reaching out. (placeholder draft — no local model available)\nRe: "${
-    ask.slice(0, 160)
-  }"`;
+  throw new Error("no model backend available");
+}
+
+export async function infer(task: Task, instruction: string): Promise<string> {
+  const { system, user } = buildPrompt(task, instruction);
+  try {
+    return await complete(system, user);
+  } catch {
+    const ask = textOf(task.history[0]?.parts ?? []);
+    return `Thanks for reaching out. (placeholder draft — no local model available)\nRe: "${
+      ask.slice(0, 160)
+    }"`;
+  }
 }
 
 // Spawn a local CLI; pass the prompt on stdin (claude) or as an arg (codex/pi). Time-bounded.
@@ -95,7 +104,10 @@ async function runCli(
     await w.close();
   }
   const { code, stdout, stderr } = await child.output();
-  const out = new TextDecoder().decode(stdout).trim();
+  // CLIs can emit ANSI/escape control bytes into stdout; strip them (keep \t and \n) so a
+  // reply to a peer never carries stray control characters.
+  // deno-lint-ignore no-control-regex
+  const out = new TextDecoder().decode(stdout).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "").trim();
   if (code !== 0 || !out) {
     throw new Error(
       `${cmd} exited ${code}: ${

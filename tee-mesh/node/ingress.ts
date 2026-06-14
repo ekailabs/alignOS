@@ -120,8 +120,8 @@ export function makeHandler(ctx: IngressCtx) {
       if (!verifyOwner(req.method, p, bodyText, req.headers)) {
         return new Response("unauthorized", { status: 401 });
       }
-      const body = JSON.parse(bodyText) as { pairs?: unknown };
-      return Response.json(setCorpus(body.pairs));
+      const body = JSON.parse(bodyText) as { pairs?: unknown; chains?: unknown };
+      return Response.json(setCorpus(body));
     }
 
     const m = p.match(/^\/agents\/([^/]+)(\/.*)?$/);
