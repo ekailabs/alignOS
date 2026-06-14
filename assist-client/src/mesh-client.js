@@ -38,8 +38,10 @@ const inbox = (status = ['input-required', 'auth-required']) =>
 const handled = (status = ['completed', 'canceled', 'rejected']) =>
   rpc('tasks/list', { status }, { owner: true });
 const getTask = (id) => rpc('tasks/get', { id }, { owner: true });
-const approve = (taskId) =>
-  rpc('message/send', { message: { role: 'user', parts: [], messageId: rid(), taskId } }, { owner: true });
+// Approve = send the reply. With a locally-drafted reply we send its text as the owner's
+// message content; with no text (back-compat) we send empty parts.
+const approve = (taskId, text) =>
+  rpc('message/send', { message: { role: 'user', parts: text ? [{ kind: 'text', text }] : [], messageId: rid(), taskId } }, { owner: true });
 const followup = (taskId, text) =>
   rpc('message/send', { message: { role: 'user', parts: [{ kind: 'text', text }], messageId: rid(), taskId }, followup: true }, { owner: true });
 const decline = (taskId, note) =>
