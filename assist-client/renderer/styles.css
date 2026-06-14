@@ -23,6 +23,9 @@ html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
 .drag-strip{position:fixed;top:0;left:0;right:0;height:30px;-webkit-app-region:drag;z-index:20}
 .shell{max-width:560px;margin:0 auto;padding:40px 24px 48px}
+/* Onboarding screens: one card, centered in the whole window (no wasted space below). */
+body.onb .shell{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding-top:30px;padding-bottom:40px}
+body.onb .setup{padding:48px 36px}
 
 /* header */
 .head{display:flex;align-items:center;gap:12px;flex-wrap:nowrap;padding-bottom:14px;margin-bottom:20px;border-bottom:1px solid var(--line)}
@@ -133,8 +136,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14p
 .card.inbox .sub{text-align:center;color:var(--muted);font-size:13.5px;padding:26px 0 8px}
 
 /* agent cards */
-.cards-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px}
-.cards-head .isub{margin-bottom:0}
+.cards-head{margin-bottom:16px}
 .mode-badge{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 9px;background:#fff}
 .mode-badge.tee{color:var(--green);background:var(--green-soft);border-color:#CFE0D4}
 .node-card{border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px;margin-bottom:16px}

@@ -74,13 +74,37 @@ function pullText(c) {
   if (c == null) return '';
   if (typeof c === 'string') return c;
   if (Array.isArray(c)) {
-    return c.map((p) => (p && p.type === 'text' ? (p.text || '')
+    return c.map((p) => (p && ['text', 'input_text', 'output_text'].includes(p.type) ? (p.text || '')
       : (typeof p === 'string' ? p : (p && p.content ? pullText(p.content) : '')))).filter(Boolean).join(' ');
   }
   if (typeof c === 'object') {
     return c.text || (typeof c.message === 'string' ? c.message : '') || (c.content ? pullText(c.content) : '') || '';
   }
   return '';
+}
+
+function normalizeRole(role) {
+  if (role === 'assistant' || role === 'user') return role;
+  if (role === 'model') return 'assistant';
+  return null;
+}
+
+function parseGenericMessage(j) {
+  const p = j.payload || j;
+  if (p && p.type === 'message' && p.role) {
+    return { role: normalizeRole(p.role), text: pullText(p.content != null ? p.content : p.text).trim() };
+  }
+  if (p && p.message && typeof p.message === 'object' && p.message.role) {
+    return { role: normalizeRole(p.message.role), text: pullText(p.message.content != null ? p.message.content : p.message.text).trim() };
+  }
+  if (p && (p.type === 'user_message' || p.type === 'agent_message')) {
+    return {
+      role: p.type === 'user_message' ? 'user' : 'assistant',
+      text: pullText(p.message != null ? p.message : p.text).trim(),
+      fallback: true,
+    };
+  }
+  return null;
 }
 
 // opencode keeps a structured JSON store (not jsonl). Project worktrees are the folders.
@@ -104,6 +128,7 @@ function readSession(file, source) {
   let lines;
   try { lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean); } catch { return []; }
   const msgs = [];
+  const fallback = [];
   for (const ln of lines) {
     let j;
     try { j = JSON.parse(ln); } catch {
@@ -117,14 +142,12 @@ function readSession(file, source) {
         if (t && !t.startsWith('<command') && !t.startsWith('[{')) msgs.push({ role: j.type, text: t });
       }
     } else {
-      const p = j.payload || j;
-      if (p && (p.role || p.type === 'message' || j.type === 'response_item' || j.type === 'event_msg')) {
-        const t = pullText(p.content != null ? p.content : (p.message != null ? p.message : p.text)).trim();
-        if (t && t.length > 1 && !t.startsWith('{')) msgs.push({ role: p.role || 'agent', text: t });
-      }
+      const m = parseGenericMessage(j);
+      if (!m || !m.role || !m.text || m.text.length <= 1 || m.text.startsWith('{')) continue;
+      (m.fallback ? fallback : msgs).push({ role: m.role, text: m.text });
     }
   }
-  return msgs;
+  return msgs.length ? msgs : fallback;
 }
 
 // Compact recent sessions into a redacted, size-bounded digest, grouped by project.

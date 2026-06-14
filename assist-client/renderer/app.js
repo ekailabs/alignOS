@@ -141,7 +141,9 @@ let _view = null;
 function setView(v) {
   _view = v;
   for (const s of SECTIONS) $(s).hidden = s !== v;
-  $('head').hidden = ONBOARDING.has(v);
+  const onb = ONBOARDING.has(v);
+  $('head').hidden = onb;
+  document.body.classList.toggle('onb', onb); // center the single card vertically during onboarding
 }
 
 const QUOTES = [
@@ -486,7 +488,7 @@ async function loadAgentCards() {
     });
     $('cards-sub').textContent = others.length
       ? 'Reach any of them directly. Each replies in its owner’s voice.'
-      : 'No other assistants are reachable in this space yet.';
+      : 'Assistants you can reach in this space.';
     $('cards-service-list').innerHTML = others.map(renderServiceCard).join('');
     hydrateAvatars($('cards-service-list'));
     $('cards-empty').hidden = others.length > 0;
