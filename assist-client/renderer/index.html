@@ -33,6 +33,14 @@
       <h1>Set up your assistant</h1>
       <p class="lead">Your assistant works for you in a private space only you control.
         Connect to it to begin.</p>
+      <div class="connect-map">
+        <div class="map-title">Backend connection</div>
+        <div class="map-line"><span>Operator gives you</span><b>Space address + setup token</b></div>
+        <div class="map-line"><span>This app claims</span><code id="ep-claim">http://localhost:8080/owner/claim</code></div>
+        <div class="map-line"><span>Owner channel</span><code id="ep-owner">http://localhost:8080/owner/a2a</code></div>
+        <div class="map-line"><span>Discovery</span><code id="ep-services">http://localhost:8080/services</code></div>
+        <div class="map-line"><span>Ask endpoint</span><code id="ep-ask">http://localhost:8080/ask-albi?mode=quick</code></div>
+      </div>
       <label class="field"><span>Space address</span>
         <input id="connect-url" value="http://localhost:8080" autocomplete="off" spellcheck="false" /></label>
       <label class="field"><span>Setup token</span>

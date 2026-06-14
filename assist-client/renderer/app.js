@@ -66,6 +66,18 @@ let current = null;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 2200); }
 function fail(msg) { $('error-text').textContent = msg || 'Unknown error'; setView('error'); }
 
+function backendBase() {
+  return ($('connect-url').value || 'http://localhost:8080').trim().replace(/\/$/, '');
+}
+
+function refreshBackendPreview() {
+  const base = backendBase();
+  $('ep-claim').textContent = `${base}/owner/claim`;
+  $('ep-owner').textContent = `${base}/owner/a2a`;
+  $('ep-services').textContent = `${base}/services`;
+  $('ep-ask').textContent = `${base}/ask-albi?mode=quick`;
+}
+
 async function boot() {
   setView('loading');
   try {
@@ -180,6 +192,8 @@ async function openReview(id) {
 }
 
 function wire() {
+  refreshBackendPreview();
+  $('connect-url').addEventListener('input', refreshBackendPreview);
   $('connect-go').addEventListener('click', async () => {
     const url = $('connect-url').value.trim();
     const token = $('connect-token').value.trim();

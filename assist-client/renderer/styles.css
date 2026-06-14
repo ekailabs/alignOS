@@ -52,6 +52,13 @@ body{background:var(--bg);font-family:var(--sans);color:var(--ink);-webkit-font-
   display:grid;place-items:center;font-family:var(--serif);font-size:24px;color:var(--accent)}
 .setup h1{font-family:var(--serif);font-size:25px;letter-spacing:-.02em;margin-bottom:10px}
 .setup .lead{font-size:13.5px;color:var(--muted);line-height:1.55;max-width:320px;margin:0 auto 22px}
+.connect-map{max-width:430px;margin:0 auto 18px;text-align:left;border:1px solid var(--line);border-radius:10px;background:#F8F6EF;padding:13px 14px}
+.map-title{font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+.map-line{display:grid;grid-template-columns:112px minmax(0,1fr);gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid #ECE7DA}
+.map-line:first-of-type{border-top:none}
+.map-line span{font-family:var(--mono);font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
+.map-line b{font-size:12.5px;font-weight:600;color:var(--ink)}
+.map-line code{font-family:var(--mono);font-size:11.5px;color:#37322A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .field{display:block;text-align:left;max-width:340px;margin:0 auto 14px}
 .field span{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px}
 .field input{width:100%;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:13px;color:var(--ink);background:#fff}
