@@ -12,11 +12,12 @@
   <div class="drag-strip"></div>
   <main class="shell">
     <header class="head" id="head" hidden>
-      <span class="wm">AlignOS</span>
+      <span class="wm"><img src="assets/ekai-logo.png" alt="" />AlignOS</span>
       <span class="head-right">
         <span class="conn off" id="conn" title="Connection to your private space"><i class="cdot"></i><span id="conn-label">…</span></span>
         <span class="pill" id="priv">Private</span>
         <button class="link" id="open-inbox">Inbox</button>
+        <button class="link" id="open-cards">Agent Cards</button>
         <button class="link" id="open-handled">Handled</button>
         <button class="link" id="open-prefs">Preferences</button>
       </span>
@@ -30,52 +31,41 @@
 
     <!-- WELCOME -->
     <section class="card setup" id="welcome" hidden>
-      <div class="mark">◇</div>
-      <h1>Welcome to AlignOS</h1>
-      <p class="tagline">Human-Agent Coordination OS</p>
-      <p class="tagline2">AI-native, privacy-first</p>
-      <p class="lead">Your assistant coordinates on your behalf, in a private space only you
-        control. In your voice, with you in charge.</p>
+      <span class="brand-mark"><img src="assets/ekai-logo.png" alt="ekai" /></span>
+      <h1 class="wordmark-hero">AlignOS</h1>
+      <p class="hero-line">The Human–Agent Collaboration OS</p>
+      <p class="lead">Your assistant works with others on your behalf, drafting in your voice and
+        aligned to how you'd actually respond. You stay in control, and in the loop.</p>
       <button class="btn primary" id="welcome-start">Get started →</button>
-      <p class="foot">Nothing is shared without your okay.</p>
+      <p class="foot">Private by default. Nothing is shared without your okay.</p>
     </section>
 
     <!-- CONNECT / SET UP -->
     <section class="card setup" id="connect" hidden>
-      <div class="mark">a</div>
-      <h1>Set up your assistant</h1>
-      <p class="lead">Your assistant works for you in a private space only you control.
-        Connect to it to begin.</p>
-      <div class="connect-map">
-        <div class="map-title">Backend connection</div>
-        <div class="map-line"><span>Operator gives you</span><b>Space address</b></div>
-        <div class="map-line"><span>Private space</span><code id="ep-base">http://localhost:8080</code></div>
-        <div class="map-line"><span>This app claims</span><code id="ep-claim">/owner/claim</code></div>
-        <div class="map-line"><span>Owner channel</span><code id="ep-owner">/owner/a2a</code></div>
-        <div class="map-line"><span>Discovery</span><code id="ep-services">/services</code></div>
-        <div class="map-line"><span>Ask endpoint</span><code id="ep-ask">/ask-albi?mode=quick</code></div>
-      </div>
+      <span class="brand-mark"><img src="assets/ekai-logo.png" alt="ekai" /></span>
+      <h1>Connect your space</h1>
+      <p class="lead">Your assistant lives in a private space only you control.
+        Enter its address to connect.</p>
       <label class="field"><span>Space address</span>
-        <input id="connect-url" value="http://localhost:8080" placeholder="https://<app-id>-8080.dstack-pha-prod7.phala.network" autocomplete="off" spellcheck="false" /></label>
+        <input id="connect-url" value="http://localhost:8080" placeholder="https://your-space.example" autocomplete="off" spellcheck="false" /></label>
       <button class="btn primary" id="connect-go">Connect →</button>
       <div class="err" id="connect-err" hidden></div>
-      <p class="foot">Nothing is shared without your okay. Replies are written by your assistant
-        and only sent when you approve.</p>
+      <p class="foot">Replies are written by your assistant, and only sent when you approve.</p>
     </section>
 
     <!-- CONSENT (before reading logs) -->
     <section class="card setup" id="consent" hidden>
-      <div class="mark">◇</div>
+      <span class="brand-mark"><img src="assets/ekai-logo.png" alt="ekai" /></span>
       <h1>Learn your style</h1>
-      <p class="lead">AlignOS reads your local assistant history and extracts redacted examples
-        of how you write, to reply in your voice.</p>
-      <button class="link" id="consent-info" style="margin:0 0 2px">ⓘ What leaves your machine</button>
+      <p class="lead">AlignOS reads your local assistant history and keeps redacted examples
+        of how you write, so it can reply in your voice.</p>
+      <button class="link" id="consent-info">ⓘ What leaves your machine</button>
       <div class="leaves" id="leaves" hidden>
         <div class="leaves-row"><span class="lk">Reads</span> Claude, Codex, OpenClaw, Pi, OpenCode, Hermes · last 7 days, on this computer</div>
         <div class="leaves-row ok"><span class="lk">✓ Uploaded</span> redacted prompt/reply examples for style</div>
         <div class="leaves-row no"><span class="lk">✗ Never</span> raw logs, code, file contents, or secrets</div>
         <div class="redact-eg"><code>KEY=sk-ant-abc123…</code><span class="arrow">→</span><code>KEY=sk-▮▮▮▮▮▮</code></div>
-        <div class="leaves-dest">Goes only to your private space (TEE).</div>
+        <div class="leaves-dest">Goes only to your private space.</div>
       </div>
       <div class="folders-actions">
         <button class="link" id="consent-skip">Not now</button>
@@ -98,12 +88,24 @@
       <p class="sub" id="seed-progress">Reading the last 7 days — raw logs stay on your machine.</p>
     </section>
 
+    <!-- SEEDED (onboarding done) -->
+    <section class="card state" id="seeded" hidden>
+      <div class="glyph check">✓</div>
+      <h2>Your assistant is ready</h2>
+      <p class="expertise" id="seeded-expertise" hidden>Based on this, we see you're an expert in
+        <b id="seeded-domain">—</b>.</p>
+      <p class="sub"><b id="seeded-count">—</b> uploaded to secure storage —
+        redacted examples of how you write, never raw logs.</p>
+      <div class="seed-sources" id="seeded-sources"></div>
+      <button class="btn primary seeded-cta" id="seeded-go">Open inbox →</button>
+    </section>
+
     <!-- FOLDERS (onboarding) -->
     <section class="card folders" id="folders" hidden>
       <h1 class="ihead">Folders your assistant can read</h1>
-      <p class="isub">We looked at which folders you work in — using only local assistant logs
-        from Claude, Codex, OpenClaw, Pi, OpenCode, and Hermes on this computer. That scan never left your machine. Pick what your assistant may read;
-        files stay on your device, secrets are masked, and nothing is shared without your okay.</p>
+      <p class="isub">Suggested from your recent local activity — nothing is selected by default.
+        Pick which folders your assistant may read in Deep Mode. Files stay on your device,
+        secrets are masked, and nothing is shared without your okay.</p>
       <ul class="list" id="folders-list"></ul>
       <button class="link" id="folders-more" hidden></button>
       <button class="link" id="folders-add">＋ Add a folder…</button>
@@ -120,6 +122,24 @@
       <h1 class="ihead">Inbox</h1>
       <p class="isub" id="inbox-sub">—</p>
       <ul class="list" id="inbox-list"></ul>
+    </section>
+
+    <!-- AGENT CARDS -->
+    <section class="card agent-cards" id="agent-cards" hidden>
+      <button class="link back" id="cards-back">← Inbox</button>
+      <div class="cards-head">
+        <div>
+          <h1 class="ihead">Agent Cards</h1>
+          <p class="isub" id="cards-sub">Published identity and routing details for this private space.</p>
+        </div>
+        <span class="mode-badge" id="cards-mode">—</span>
+      </div>
+      <div class="node-card" id="node-card"></div>
+      <div class="sec">Local agents</div>
+      <ul class="card-list" id="cards-agent-list"></ul>
+      <div class="sec">Known services</div>
+      <ul class="card-list" id="cards-service-list"></ul>
+      <p class="sub" id="cards-empty" hidden>No agent cards are published yet.</p>
     </section>
 
     <!-- ALL CLEAR -->
@@ -175,7 +195,7 @@
       <div class="sec">Folders &amp; Deep Mode</div>
       <div class="prefs-note">Your assistant reads local files only in Deep Mode — it proposes a
         scoped request and you approve it each time. Choose which folders are eligible.</div>
-      <button class="link" id="prefs-folders" style="margin-top:8px">Manage folders →</button>
+      <button class="link prefs-folders-link" id="prefs-folders">Manage folders →</button>
     </section>
 
     <!-- ERROR -->

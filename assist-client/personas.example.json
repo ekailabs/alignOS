@@ -1,0 +1,7 @@
+{
+  "_comment": "Demo expertise map. Copy this to your app home as personas.json — $ALIGN_HOME/personas.json, or ~/.alignos/personas.json if ALIGN_HOME is unset — and fill in real values. It is read by src/main.js (seed) and never committed, so the three demo space URLs stay off GitHub. Each key is a substring matched against the connected space URL; the first match wins. Keys starting with _ are ignored. Value = the expertise shown on the 'Your assistant is ready' screen (one of our three agent cards: Albi / Andrew / Shashank).",
+  "localhost:8080": "system design and agent infrastructure",
+  "<albi-app-id>-8080": "GTM, PMF, and product development",
+  "<andrew-app-id>-8080": "confidential compute, privacy, and security",
+  "<shashank-app-id>-8080": "system design and agent infrastructure"
+}

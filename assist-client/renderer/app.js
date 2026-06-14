@@ -31,10 +31,42 @@ const MOCK = (() => {
     skipOnboarding: async () => ({ ok: true }),
     seed: async () => ({
       uploaded: 66,
+      convos: 42,
       days: 7,
+      expertise: 'system design and agent infrastructure',
       bySource: { claude: 40, codex: 15, openclaw: 4, pi: 3, opencode: 2, hermes: 2 },
     }),
     health: async () => ({ ok: true }),
+    agentCards: async () => ({
+      node: {
+        node_id: '0x7d5e9e5b1d1c8a6a',
+        gateway_url: 'http://localhost:8080',
+        app_id: 'local-node',
+        owner: { handle: 'you', display_name: 'You', claimed: true },
+        mode: 'local',
+        updated_at: new Date().toISOString(),
+        version: 3,
+        agents: [
+          {
+            name: 'shashank',
+            description: 'System design and agent infrastructure.',
+            url: 'http://localhost:8080/agents/shashank',
+            skills: [{ name: 'Architecture review' }, { name: 'Agent routing' }],
+          },
+        ],
+      },
+      service: {
+        owner: { handle: 'you', display_name: 'You', claimed: true },
+        endpoints: {
+          quick_mode: 'http://localhost:8080/ask-you?mode=quick',
+          deep_mode: 'http://localhost:8080/ask-you?mode=deep',
+          public_a2a: 'http://localhost:8080/a2a',
+          owner_a2a: 'http://localhost:8080/owner/a2a',
+        },
+        capabilities: { modes: ['quick', 'deep'] },
+      },
+      services: [],
+    }),
     pickFolder: async () => '/Users/you/Documents/example',
     inbox: async () => tasks.filter((t) => ['input-required', 'auth-required'].includes(t.status.state)),
     handled: async () => tasks.filter((t) => ['completed', 'canceled', 'rejected'].includes(t.status.state)),
@@ -60,9 +92,9 @@ const ago = (when) => {
   return Math.floor(s / 86400) + 'd';
 };
 
-const SECTIONS = ['loading', 'welcome', 'connect', 'consent', 'seeding', 'folders', 'inbox', 'allclear', 'review', 'handled', 'prefs', 'error'];
+const SECTIONS = ['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded', 'folders', 'inbox', 'agent-cards', 'allclear', 'review', 'handled', 'prefs', 'error'];
 const OUTCOME = { completed: 'Sent', canceled: 'Declined', rejected: 'Declined' };
-const ONBOARDING = new Set(['loading', 'welcome', 'connect', 'consent', 'seeding']);
+const ONBOARDING = new Set(['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded']);
 function setView(v) {
   for (const s of SECTIONS) $(s).hidden = s !== v;
   $('head').hidden = ONBOARDING.has(v);
@@ -135,6 +167,7 @@ function backendBase() {
 }
 
 function refreshBackendPreview() {
+  if (!$('ep-base')) return; // infra endpoint map removed in the minimal UI
   const base = backendBase();
   $('ep-base').textContent = base;
   $('ep-base').title = base;
@@ -151,6 +184,8 @@ async function boot() {
     if (MOCKED) $('priv').textContent = 'Private · demo';
     startHealthPolling();
     if (!b.connected) return setView('welcome');
+    // Returning session: a restarted/re-keyed space could 401 the inbox. mesh-client auto-repairs
+    // that by re-claiming once on a 401 and retrying, so loading straight in is safe.
     await loadInbox(); openFromHash();
   } catch (e) { fail(e.message); }
 }
@@ -170,8 +205,8 @@ async function openFolders() {
   let list = [];
   try { list = await api.suggestFolders(); } catch (e) { /* show empty list, still usable */ }
   const ul = $('folders-list'); ul.innerHTML = '';
-  list.slice(0, 10).forEach((f) => ul.appendChild(folderRow(f, true))); // option 2: pre-check all suggested
-  _moreFolders = list.slice(10);
+  list.slice(0, 6).forEach((f) => ul.appendChild(folderRow(f, false))); // suggestions only — opt-in, nothing pre-granted
+  _moreFolders = list.slice(6);
   $('folders-more').hidden = _moreFolders.length === 0;
   $('folders-more').textContent = `＋ ${_moreFolders.length} more folders`;
 }
@@ -183,8 +218,8 @@ function rotateQuote() {
   el.style.opacity = '0';
   setTimeout(() => { el.textContent = QUOTES[_qi % QUOTES.length]; el.style.opacity = '1'; _qi++; }, 350);
 }
-function renderSeedSources(bySource) {
-  const el = $('seed-sources'); el.innerHTML = '';
+function renderSeedSources(bySource, targetId = 'seed-sources') {
+  const el = $(targetId); if (!el) return; el.innerHTML = '';
   for (const [key, label] of SEED_SOURCES) {
     const n = bySource ? (bySource[key] || 0) : null;
     const s = document.createElement('span');
@@ -198,14 +233,18 @@ async function seedAndEnter() {
   _qi = 0; rotateQuote(); renderSeedSources(null);
   if (!_quoteTimer) _quoteTimer = setInterval(rotateQuote, 3000);
   let res = null;
-  try { res = await api.seed(); } catch (e) { /* non-fatal — proceed to the inbox */ }
+  try { res = await api.seed(); } catch (e) { /* non-fatal — still show the confirmation */ }
   clearInterval(_quoteTimer); _quoteTimer = null;
-  if (res && res.bySource) {
-    renderSeedSources(res.bySource);
-    $('seed-progress').textContent = `Seeded ${res.uploaded} prompt/output pairs from the last ${res.days || 7} days.`;
-    await new Promise((r) => setTimeout(r, 1500)); // let the ticks land
-  }
-  await loadInbox();
+  // Confirmation screen: tell the owner exactly what landed in their private space.
+  const n = res && Number.isFinite(res.convos) ? res.convos : 0;
+  $('seeded-count').textContent = n
+    ? `${n.toLocaleString()} agent conversation${n === 1 ? '' : 's'}`
+    : 'Your agent conversations';
+  const domain = res && res.expertise;
+  $('seeded-domain').textContent = domain || '';
+  $('seeded-expertise').hidden = !domain;
+  renderSeedSources(res && res.bySource, 'seeded-sources');
+  setView('seeded');
 }
 
 // Deep-link to a specific request, e.g. from a notification: index.html#open=<taskId>
@@ -220,6 +259,7 @@ function openFromHash() {
     return;
   }
   if (h === '#folders') return openFolders();
+  if (h === '#cards') return loadAgentCards();
   if (h === '#handled') return loadHandled();
   const m = h.match(/^#open=(.+)/);
   if (m) openReview(decodeURIComponent(m[1]));
@@ -265,6 +305,87 @@ async function loadHandled() {
   } catch (e) { fail(e.message); }
 }
 
+const shortId = (s) => {
+  const text = String(s || '');
+  return text.length > 18 ? `${text.slice(0, 10)}…${text.slice(-6)}` : text;
+};
+
+function skillNames(skills) {
+  if (!Array.isArray(skills)) return [];
+  return skills.map((s) => {
+    if (typeof s === 'string') return s;
+    return s && (s.name || s.title || s.id);
+  }).filter(Boolean).slice(0, 4);
+}
+
+function endpointRows(endpoints) {
+  return Object.entries(endpoints || {})
+    .filter(([, value]) => value)
+    .map(([key, value]) => `<div class="endpoint-row"><span>${esc(key.replace(/_/g, ' '))}</span><code title="${esc(value)}">${esc(value)}</code></div>`)
+    .join('');
+}
+
+function renderAgentCard(agent) {
+  const skills = skillNames(agent.skills);
+  return `<li class="agent-card-item">
+    <div class="agent-card-top">
+      <span class="av">${esc(initial(agent.name))}</span>
+      <span class="agent-card-title"><b>${esc(agent.name || 'Unnamed agent')}</b><span>${esc(agent.description || 'No description published.')}</span></span>
+    </div>
+    ${skills.length ? `<div class="tag-row">${skills.map((s) => `<span class="tag">${esc(s)}</span>`).join('')}</div>` : ''}
+    <code class="url-line" title="${esc(agent.url || '')}">${esc(agent.url || 'No gateway URL')}</code>
+  </li>`;
+}
+
+function renderServiceCard(service) {
+  const owner = service.owner || {};
+  const modes = service.capabilities && Array.isArray(service.capabilities.modes) ? service.capabilities.modes : [];
+  return `<li class="agent-card-item">
+    <div class="agent-card-top">
+      <span class="av">${esc(initial(owner.display_name || owner.handle || service.app_id))}</span>
+      <span class="agent-card-title"><b>${esc(owner.display_name || owner.handle || service.app_id || 'Unknown service')}</b><span>${esc(service.gateway_url || service.service_id || '')}</span></span>
+    </div>
+    ${modes.length ? `<div class="tag-row">${modes.map((m) => `<span class="tag">${esc(m)}</span>`).join('')}</div>` : ''}
+    <div class="endpoint-list">${endpointRows(service.endpoints)}</div>
+  </li>`;
+}
+
+async function loadAgentCards() {
+  try {
+    setView('agent-cards');
+    $('node-card').innerHTML = '<div class="spinner small-spin"></div>';
+    $('cards-agent-list').innerHTML = '';
+    $('cards-service-list').innerHTML = '';
+    $('cards-empty').hidden = true;
+
+    const { node, service, services } = await api.agentCards();
+    const cardNode = node || {};
+    const svc = service || {};
+    const owner = cardNode.owner || svc.owner || {};
+    $('cards-mode').textContent = cardNode.mode || 'unknown';
+    $('cards-mode').classList.toggle('tee', cardNode.mode === 'tee');
+    $('cards-sub').textContent = owner.display_name || owner.handle
+      ? `${owner.display_name || owner.handle}'s published agent identity and routing surface.`
+      : 'Published identity and routing details for this private space.';
+
+    $('node-card').innerHTML = `<div class="node-main">
+      <div><span class="node-label">Owner</span><b>${esc(owner.display_name || owner.handle || 'Unclaimed')}</b></div>
+      <div><span class="node-label">Node</span><code title="${esc(cardNode.node_id || '')}">${esc(shortId(cardNode.node_id))}</code></div>
+      <div><span class="node-label">Gateway</span><code title="${esc(cardNode.gateway_url || '')}">${esc(cardNode.gateway_url || '')}</code></div>
+      <div><span class="node-label">Version</span><b>${esc(cardNode.version == null ? '-' : cardNode.version)}</b></div>
+      <div><span class="node-label">Attestation</span><code title="${esc(cardNode.attestation_digest || '')}">${esc(cardNode.attestation_digest ? shortId(cardNode.attestation_digest) : 'local mode')}</code></div>
+      <div><span class="node-label">Updated</span><b>${esc(ago(cardNode.updated_at))}</b></div>
+    </div>
+    <div class="endpoint-list">${endpointRows(svc.endpoints)}</div>`;
+
+    const agents = Array.isArray(cardNode.agents) ? cardNode.agents : [];
+    $('cards-agent-list').innerHTML = agents.map(renderAgentCard).join('');
+    const knownServices = Array.isArray(services) && services.length ? services : (service ? [service] : []);
+    $('cards-service-list').innerHTML = knownServices.map(renderServiceCard).join('');
+    $('cards-empty').hidden = !!(agents.length || knownServices.length);
+  } catch (e) { fail(e.message); }
+}
+
 async function openReview(id) {
   try {
     const t = await api.show(id); current = t;
@@ -303,8 +424,11 @@ function wire() {
   });
   $('consent-approve').addEventListener('click', seedAndEnter);
   $('consent-skip').addEventListener('click', loadInbox);
+  $('seeded-go').addEventListener('click', loadInbox);
   $('consent-info').addEventListener('click', () => { const l = $('leaves'); l.hidden = !l.hidden; });
   $('open-inbox').addEventListener('click', loadInbox);
+  $('open-cards').addEventListener('click', loadAgentCards);
+  $('cards-back').addEventListener('click', loadInbox);
   $('open-handled').addEventListener('click', loadHandled);
   $('allclear-handled').addEventListener('click', loadHandled);
   $('handled-back').addEventListener('click', loadInbox);
@@ -326,7 +450,7 @@ function wire() {
     try { const p = await api.pickFolder(); if (p) $('folders-list').appendChild(folderRow({ path: p, sessions: 0 }, true)); } catch (e) { fail(e.message); }
   });
   $('folders-more').addEventListener('click', () => {
-    for (const f of _moreFolders) $('folders-list').appendChild(folderRow(f, true));
+    for (const f of _moreFolders) $('folders-list').appendChild(folderRow(f, false));
     _moreFolders = []; $('folders-more').hidden = true;
   });
   $('rv-approve').addEventListener('click', async () => { try { await api.approve(current.id); toast('Approved — sent.'); loadInbox(); } catch (e) { fail(e.message); } });

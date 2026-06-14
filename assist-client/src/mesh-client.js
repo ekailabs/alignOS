@@ -13,9 +13,19 @@ async function rpc(method, params, { owner = false, url } = {}) {
   const base = (url || load().url || 'http://localhost:8080').replace(/\/$/, '');
   const pth = owner ? '/owner/a2a' : '/a2a';
   const body = JSON.stringify({ jsonrpc: '2.0', id: ++_rid, method, params });
-  const headers = { 'content-type': 'application/json' };
-  if (owner) Object.assign(headers, identity.signHeaders('POST', pth, body));
-  const res = await http.request(base + pth, { method: 'POST', headers, body });
+  const send = () => {
+    const headers = { 'content-type': 'application/json' };
+    if (owner) Object.assign(headers, identity.signHeaders('POST', pth, body));
+    return http.request(base + pth, { method: 'POST', headers, body });
+  };
+  let res = await send();
+  // If the node was claimed by an older install/key, newer assist-remote can rebind on
+  // /owner/claim. Repair once automatically so reopening the app doesn't strand users on
+  // a fatal "not authorized" inbox screen.
+  if (res.status === 401 && owner) {
+    await identity.claim(base);
+    res = await send();
+  }
   if (res.status === 401) throw new Error('not authorized — claim this space first: alignos setup --url <gateway>');
   const j = await res.json();
   if (j.error) throw new Error(`${method}: ${j.error.message}`);
@@ -39,12 +49,35 @@ const decline = (taskId, note) =>
 async function ownerPost(pth, payload, { url } = {}) {
   const base = (url || load().url || 'http://localhost:8080').replace(/\/$/, '');
   const body = JSON.stringify(payload);
-  const headers = { 'content-type': 'application/json', ...identity.signHeaders('POST', pth, body) };
-  const res = await http.request(base + pth, { method: 'POST', headers, body });
+  const send = () => {
+    const headers = { 'content-type': 'application/json', ...identity.signHeaders('POST', pth, body) };
+    return http.request(base + pth, { method: 'POST', headers, body });
+  };
+  let res = await send();
+  if (res.status === 401) {
+    await identity.claim(base);
+    res = await send();
+  }
   if (res.status === 401) throw new Error('not authorized — claim this space first: alignos setup --url <gateway>');
   return res.json();
 }
-const uploadKnowledge = (pairs) => ownerPost('/owner/knowledge', { pairs });
+const uploadKnowledge = (pairs, chains) =>
+  ownerPost('/owner/knowledge', chains ? { pairs, chains } : { pairs });
+const requestProvider = ({ question, mode = 'quick', owner, url }) =>
+  ownerPost('/owner/request', { question, mode, owner, url });
+
+function configuredBase(url, { fallback = true } = {}) {
+  const raw = url || load().url || (fallback ? 'http://localhost:8080' : '');
+  if (!raw) throw new Error('Connect to your TEE space first.');
+  return raw.replace(/\/$/, '');
+}
+
+async function getJson(pth, { url, timeoutMs = 3000, fallback = true } = {}) {
+  const base = configuredBase(url, { fallback });
+  const res = await http.request(base + pth, { timeoutMs });
+  if (!res.ok) throw new Error(`${pth}: HTTP ${res.status}`);
+  return res.json();
+}
 
 // liveness: is the private space (assist-remote) reachable?
 async function health(timeoutMs = 3000) {
@@ -61,4 +94,8 @@ async function health(timeoutMs = 3000) {
 const peerAsk = (text, display, url) =>
   rpc('message/send', { message: { role: 'user', parts: [{ kind: 'text', text }], messageId: rid() }, from: { display } }, { url });
 
-module.exports = { rpc, rid, inbox, handled, getTask, approve, followup, decline, uploadKnowledge, health, peerAsk };
+const nodeCard = (opts) => getJson('/.well-known/agent-card.json', { ...opts, fallback: false });
+const serviceCard = (opts) => getJson('/.well-known/alignos-service.json', { ...opts, fallback: false });
+const services = (opts) => getJson('/services', { ...opts, fallback: false });
+
+module.exports = { rpc, rid, inbox, handled, getTask, approve, followup, decline, uploadKnowledge, requestProvider, health, peerAsk, nodeCard, serviceCard, services };

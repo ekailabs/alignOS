@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('alignos', {
   bootstrap: () => ipcRenderer.invoke('bootstrap'),
   health: () => ipcRenderer.invoke('health'),
+  agentCards: () => ipcRenderer.invoke('agent-cards'),
   setup: (payload) => ipcRenderer.invoke('setup', payload),
   seed: () => ipcRenderer.invoke('seed'),
   suggestFolders: () => ipcRenderer.invoke('suggest-folders'),
@@ -14,6 +15,7 @@ contextBridge.exposeInMainWorld('alignos', {
   inbox: () => ipcRenderer.invoke('inbox'),
   handled: () => ipcRenderer.invoke('handled'),
   show: (id) => ipcRenderer.invoke('show', { id }),
+  askProvider: (payload) => ipcRenderer.invoke('ask-provider', payload),
   approve: (id) => ipcRenderer.invoke('approve', { id }),
   followup: (id, msg) => ipcRenderer.invoke('followup', { id, msg }),
   decline: (id, note) => ipcRenderer.invoke('decline', { id, note }),

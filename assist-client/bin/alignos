@@ -8,6 +8,8 @@
 //   alignos approve <id>               send the reply
 //   alignos followup <id> --msg <t>    ask the assistant to revise (--msg - reads stdin)
 //   alignos decline <id> [--note <t>]  refuse
+//   alignos ask --owner <handle> [--mode quick|deep] <question>
+//   alignos mcp                         stdio MCP bridge for local tools
 const mc = require('../src/mesh-client');
 const cfg = require('../src/config');
 const store = require('../src/inbox-store');
@@ -16,6 +18,21 @@ const argv = process.argv.slice(2);
 const flag = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined; };
 const hasFlag = (name) => argv.includes(name);
 const text = (parts = []) => parts.filter((p) => p.kind === 'text').map((p) => p.text).join('\n');
+function askQuestion() {
+  const qFlag = flag('--question') || flag('--msg');
+  if (qFlag === '-') return require('fs').readFileSync(0, 'utf8').trim();
+  if (qFlag) return qFlag;
+  const skipValueFor = new Set(['--mode', '--owner', '--provider', '--url', '--question', '--msg']);
+  const parts = [];
+  for (let i = 1; i < argv.length; i++) {
+    const a = argv[i];
+    if (skipValueFor.has(a)) { i++; continue; }
+    if (a.startsWith('--')) continue;
+    parts.push(a);
+  }
+  const q = parts.join(' ').trim();
+  return q === '-' ? require('fs').readFileSync(0, 'utf8').trim() : q;
+}
 function seedOpts() {
   if (hasFlag('--all')) return { days: null, maxPairs: 1500 };
   const days = Number(flag('--days') || 7);
@@ -47,19 +64,37 @@ async function main() {
       process.stderr.write(`seeding your assistant from your agent logs (${hasFlag('--all') ? 'all history' : `${seedOpts().days} days`})…\n`);
       try {
         const { pairs, stats } = require('../src/agent-logs').ingestCorpus(seedOpts());
-        const r = await mc.uploadKnowledge(pairs);
+        const { chains } = require('../src/agent-logs').ingestStyle(seedOpts());
+        const r = await mc.uploadKnowledge(pairs, chains);
         console.log(`seeded ${r.count} prompt/output pairs from ${stats.sessions} sessions`);
       } catch (e) { console.error('seed skipped:', e.message); }
       break;
     }
     case 'seed': {
       const { pairs, stats } = require('../src/agent-logs').ingestCorpus(seedOpts());
-      const r = await mc.uploadKnowledge(pairs);
+      const { chains } = require('../src/agent-logs').ingestStyle(seedOpts());
+      const r = await mc.uploadKnowledge(pairs, chains);
       console.log(`seeded ${r.count} prompt/output pairs from ${stats.sessions} sessions`);
       break;
     }
     case 'status':
       console.log('private space:', cfg.load().url || '(not set — run: alignos setup --url <gateway>)');
+      break;
+    case 'ask': {
+      const question = askQuestion();
+      const mode = flag('--mode') || 'quick';
+      const owner = flag('--owner') || flag('--provider');
+      const url = flag('--url');
+      if (!question) throw new Error('usage: alignos ask --owner <handle> [--mode quick|deep] <question>');
+      if (!owner && !url) throw new Error('ask requires --owner <handle> or --url <ask-endpoint>');
+      const t = await mc.requestProvider({ question, mode, owner, url });
+      console.log(`${t.id.slice(0, 8)}  ${t.status.state}`);
+      const answer = text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts);
+      if (answer) console.log(answer);
+      break;
+    }
+    case 'mcp':
+      require('../src/mcp-server').serve();
       break;
     case 'inbox': {
       const tasks = await mc.inbox();
@@ -105,7 +140,7 @@ async function main() {
       break;
     }
     default:
-      console.log('alignos: setup | status | inbox | show <id> | approve <id> | followup <id> --msg <t> | decline <id> [--note <t>]');
+      console.log('alignos: setup | status | ask --owner <handle> <question> | mcp | inbox | show <id> | approve <id> | followup <id> --msg <t> | decline <id> [--note <t>]');
   }
 }
 
