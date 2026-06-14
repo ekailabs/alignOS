@@ -8,10 +8,10 @@ exact words we use for each part see [taxonomy.md](taxonomy.md).
 
 ## Topology
 
-![AlignOS topology — a mesh of edge-owned TEEs, each paired with its owner's laptop, anchored to a registry on Ethereum](assets/alignOS.drawio.png)
+![AlignOS topology, a mesh of edge-owned TEEs, each paired with its owner's laptop, anchored to a registry on Ethereum](assets/alignOS.drawio.png)
 
-One TEE per owner, each paired with that owner's laptop. TEEs talk **edge-to-edge over A2A** —
-there is no central brain — and all nodes anchor to the on-chain `AlignRegistry`. An annotated
+One TEE per owner, each paired with that owner's laptop. TEEs talk **edge-to-edge over A2A**,
+there is no central brain, and all nodes anchor to the on-chain `AlignRegistry`. An annotated
 view that calls out the **privacy boundary** (raw logs never cross laptop→TEE) and the registry
 anchor is in [`assets/architecture.svg`](assets/architecture.svg).
 
@@ -53,7 +53,7 @@ assistant" and "your inbox" (see [taxonomy.md](taxonomy.md)).
 
 ## Request lifecycle
 
-Every request — whether it originates from your own client or a peer's agent — passes through
+Every request, whether it originates from your own client or a peer's agent, passes through
 **the owner's `assist-remote` first**. That invariant is what lets the inbox be durable while
 your laptop is asleep.
 
@@ -83,13 +83,13 @@ Key files: [`ingress.ts`](../tee-mesh/node/ingress.ts), [`a2a.ts`](../tee-mesh/n
 
 ## Mesh membership & discovery
 
-Membership is **on-chain**; discovery is **HTTP gossip**. Boot never blocks on either — the
+Membership is **on-chain**; discovery is **HTTP gossip**. Boot never blocks on either, the
 node serves on `:8080` immediately and reconciles the mesh in the background
 ([`main.ts`](../tee-mesh/node/main.ts)).
 
 **Registry (the seed list).** Each node self-registers
 `(node_id, pubkey, codeId, gatewayUrl)` at boot. Storing the **gateway URL** on-chain is the
-piece that lets peers actually dial each other — there is no hand-edited peer file and no
+piece that lets peers actually dial each other, there is no hand-edited peer file and no
 deploy-order coupling.
 
 ```solidity
@@ -105,7 +105,7 @@ function getMembers() external view returns (bytes32[] memory);
 ```
 
 `register()` is open in this PoC (any funded key can register); attestation-gating is a
-roadmap item — see [PRIVACY.md](PRIVACY.md#trust-assumptions-poc). Client:
+roadmap item, see [PRIVACY.md](PRIVACY.md#trust-assumptions-poc). Client:
 [`registry.ts`](../tee-mesh/node/registry.ts).
 
 **Gossip (the live view).** Each node periodically pulls every peer's agent card and `/peers`
@@ -122,7 +122,7 @@ boot. Code: [`gossip.ts`](../tee-mesh/node/gossip.ts); sample directory:
 Identity comes from the **dstack socket** (`/var/run/dstack.sock`), not from a config file
 ([`identity.ts`](../tee-mesh/node/identity.ts)):
 
-- `node_id = keccak256(app_id ":" instance_id)` — unique even across replicas that share an
+- `node_id = keccak256(app_id ":" instance_id)`, unique even across replicas that share an
   `app_id`.
 - The signing keypair is derived via `GetKey(path="/alignos/identity")`.
 - A remote-attestation quote is fetched via `GetQuote(report_data = pubkey)`, and
@@ -130,7 +130,7 @@ Identity comes from the **dstack socket** (`/var/run/dstack.sock`), not from a c
   quote is exposed at `GET /quote?report_data=…` for any verifier.
 
 With no socket (local dev), the node derives a deterministic local identity and reports
-`mode: local` — so the whole mesh runs on a laptop without any TEE.
+`mode: local`, so the whole mesh runs on a laptop without any TEE.
 
 ---
 
@@ -143,12 +143,12 @@ nodes set `ALIGN_DRAFT_BACKEND=codex`.
 
 Supported backends:
 
-1. `codex` — `codex exec` using an `auth.json` materialized at boot from a dstack secret
+1. `codex`, `codex exec` using an `auth.json` materialized at boot from a dstack secret
    (`CODEX_AUTH_JSON_B64`, decoded in [`scripts/entrypoint.sh`](../tee-mesh/node/scripts/entrypoint.sh)).
-2. `claude` — `claude -p` when Claude Code is installed/configured.
-3. `api` — Anthropic API, only if `ANTHROPIC_API_KEY` is set (`ALIGN_MODEL`, default
+2. `claude`, `claude -p` when Claude Code is installed/configured.
+3. `api`, Anthropic API, only if `ANTHROPIC_API_KEY` is set (`ALIGN_MODEL`, default
    `claude-sonnet-4-6`).
-4. `pi` — `pi -p`.
+4. `pi`, `pi -p`.
 
 The owner's **voice** comes from [`knowledge.ts`](../tee-mesh/node/knowledge.ts): redacted
 `{prompt, output}` pairs (few-shot style) and prompt **chains** (how the owner iterates).
@@ -174,7 +174,7 @@ x-align-key · x-align-timestamp · x-align-nonce · x-align-signature
 canonical = method "\n" path "\n" sha256hex(body) "\n" timestamp "\n" nonce
 ```
 
-The node verifies the signature, a ±60s timestamp skew, and a nonce replay window — lightweight
+The node verifies the signature, a ±60s timestamp skew, and a nonce replay window, lightweight
 auth with no passwords that survives restarts.
 
 ---
@@ -199,7 +199,7 @@ auth with no passwords that survives restarts.
 
 Skill routing ([`router.ts`](../tee-mesh/node/router.ts)) tokenizes the question, scores it
 against every skill's metadata across the mesh (with an arithmetic-intent boost), and forwards
-to the best agent — possibly on another CVM.
+to the best agent, possibly on another CVM.
 
 ---
 
@@ -211,7 +211,7 @@ modules), so every behavior below also works headless.
 | Concern | Code | What it does |
 |---|---|---|
 | Log ingestion | [`agent-logs.js`](../assist-local/src/agent-logs.js) | Walks `~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`, `~/.opencode`, `~/.hermes`; builds `{prompt, output}` pairs + style chains from the last 7 days. |
-| Local redaction | [`redact.js`](../assist-local/src/redact.js) | Pure, deterministic masking of API keys, tokens, JWTs, AWS keys, private keys, long hex — applied **before** anything leaves. |
+| Local redaction | [`redact.js`](../assist-local/src/redact.js) | Pure, deterministic masking of API keys, tokens, JWTs, AWS keys, private keys, long hex: applied **before** anything leaves. |
 | Folder scope | [`scope.js`](../assist-local/src/scope.js) | Deny-by-default: only explicitly granted folders are ever read. |
 | Upload | [`mesh-client.js`](../assist-local/src/mesh-client.js) | Owner-signed `POST /owner/knowledge` with redacted pairs/chains. |
 | Identity | [`identity.js`](../assist-local/src/identity.js) | Ed25519 keypair, claim, request signing. |
@@ -227,7 +227,7 @@ Storage lives under `~/.alignos/` (`config.json`, `scope.json`, `owner.key`, `dr
 
 The TEE node persists everything to a `/data` volume: `owner.json`, `tasks.json`,
 `events.jsonl` (append-only audit), `peers.json`, `knowledge.json`. **Raw local agent logs are
-never mounted into the TEE** — only redacted onboarding / Deep Mode slices cross.
+never mounted into the TEE**, only redacted onboarding / Deep Mode slices cross.
 
 Standing up and growing an organization mesh is the **[operator guide → OPERATORS.md](OPERATORS.md)**;
 the Phala command runbook (images, the inline-manifest trick, the chicken-and-egg app-id/URL

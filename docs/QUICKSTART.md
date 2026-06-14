@@ -1,28 +1,28 @@
 # Quickstart
 
-Four ways in, fastest first. Path A needs **no Docker, no TEE, no cloud** — it runs the whole
+Four ways in, fastest first. Path A needs **no Docker, no TEE, no cloud**, it runs the whole
 mesh on your laptop in a couple of minutes.
 
 | Path | You get | Needs |
 |---|---|---|
-| **A — Local mesh** | A 3-node mesh on anvil; gossip + registry + routing, end to end | Deno, Foundry |
-| **B — Containers** | The same mesh in the exact images Phala runs | Docker |
-| **C — Edge client** | The desktop app / CLI talking to a private space | Node 18+ (Electron for the app) |
-| **D — Phala deploy** | A real TEE node on `dstack-pha-prod7` | Phala CLI, see DEPLOY.md |
+| **A: Local mesh** | A 3-node mesh on anvil; gossip + registry + routing, end to end | Deno, Foundry |
+| **B: Containers** | The same mesh in the exact images Phala runs | Docker |
+| **C: Edge client** | The desktop app / CLI talking to a private space | Node 18+ (Electron for the app) |
+| **D: Phala deploy** | A real TEE node on `dstack-pha-prod7` | Phala CLI, see DEPLOY.md |
 
 ---
 
 ## Prerequisites
 
-- **[Deno](https://deno.com)** — the node runtime (`assist-remote`).
+- **[Deno](https://deno.com)**, the node runtime (`assist-remote`).
 - **[Foundry](https://book.getfoundry.sh/getting-started/installation)** (`anvil`, `forge`,
-  `cast`) — local chain + contract deploy.
-- **Node 18+** — the edge client (`assist-local`). Electron is pulled in by `npm install`.
+  `cast`), local chain + contract deploy.
+- **Node 18+**, the edge client (`assist-local`). Electron is pulled in by `npm install`.
 - *(Path B only)* **Docker**.
 
 ---
 
-## Path A — the local mesh (≈2 min)
+## Path A: the local mesh (≈2 min)
 
 ```bash
 bash tee-mesh/scripts/local-test.sh
@@ -40,7 +40,7 @@ This single script ([`local-test.sh`](../tee-mesh/scripts/local-test.sh)):
 You'll see each node register on-chain, the `/peers` and `/services` directories, a live
 cross-CVM proxy call, and finally `PASS`.
 
-**Then watch routing pick the right specialist** (works against any node URL — local or a live
+**Then watch routing pick the right specialist** (works against any node URL, local or a live
 prod7 gateway):
 
 ```bash
@@ -55,22 +55,22 @@ PASS  "how should we design the agent routing …" -> shashank  answer=…Agent 
 
 > Want a single standalone node with a **real model** (your Claude subscription) instead of the
 > three demo agents? Run [`tee-mesh/node/scripts/dev-local.sh`](../tee-mesh/node/scripts/dev-local.sh)
-> — it boots a node on `:8787` with `ALIGN_DRAFT_BACKEND=claude`. Point the client at it below.
+> It boots a node on `:8787` with `ALIGN_DRAFT_BACKEND=claude`. Point the client at it below.
 
 ---
 
-## Path B — the containerized mesh
+## Path B: the containerized mesh
 
 ```bash
 bash tee-mesh/scripts/compose-test.sh
 ```
 
 Same outcome as Path A, but in Docker against the exact `ghcr.io/sm86/alignos-{node,skill}`
-images that run on Phala — useful for validating images before a cloud deploy.
+images that run on Phala, useful for validating images before a cloud deploy.
 
 ---
 
-## Path C — the edge client (your laptop)
+## Path C: the edge client (your laptop)
 
 ```bash
 cd assist-local
@@ -88,7 +88,7 @@ You'll walk through: **Welcome → Connect** (paste a private-space gateway URL)
 days of agent logs, redacted) **→ Folders** (deny-by-default: pick which folders Deep Mode may
 ever read). Then the **Inbox** opens.
 
-**Or the headless CLI** — same logic core:
+**Or the headless CLI**, same logic core:
 
 ```bash
 node bin/alignos setup --url http://localhost:8787   # connect + claim + seed (use your space URL)
@@ -101,11 +101,11 @@ node bin/alignos ask --owner andrew --mode quick "how does remote attestation wo
 ```
 
 Full CLI reference: [`assist-local/README.md`](../assist-local/README.md). Nothing is sent
-until you approve — raw local files never leave the machine, only the reviewed reply does.
+until you approve, raw local files never leave the machine, only the reviewed reply does.
 
 ---
 
-## Path D — deploy a real TEE node to Phala
+## Path D: deploy a real TEE node to Phala
 
 Standing up a mesh for a whole **organization** (and adding members node by node) is the
 **[operator guide → OPERATORS.md](OPERATORS.md)**. The exact commands, image build, and debug

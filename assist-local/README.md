@@ -1,9 +1,9 @@
-# assist-local — the AlignOS edge app
+# assist-local: the AlignOS edge app
 
 The local half of AlignOS: the app (and CLI) that runs on **your** machine. It ingests your
 agent logs, **redacts them locally**, uploads only scoped slices to your private space, and is
 where you review and approve everything your assistant does. Raw logs and files never leave the
-device — only reviewed, redacted slices do.
+device, only reviewed, redacted slices do.
 
 For the big picture see the [project README](../README.md); for the precise privacy model see
 [docs/PRIVACY.md](../docs/PRIVACY.md). This is `assist-local` in the
@@ -25,7 +25,7 @@ npm install
 npm start          # electron .
 ```
 
-**CLI** — the same logic core, headless:
+**CLI**, the same logic core, headless:
 
 ```bash
 node bin/alignos <command>      # or: npm run cli -- <command>
@@ -36,7 +36,7 @@ node bin/alignos <command>      # or: npm run cli -- <command>
 | `setup --url <gateway>` | Connect to your private space, claim it, and seed it from your logs. |
 | `status` | Show the connected space. |
 | `seed [--days N \| --all]` | Re-ingest redacted logs and upload (default: last 7 days). |
-| `watch` | Run the drafting loop headless — draft every incoming request locally, read-only. |
+| `watch` | Run the drafting loop headless: draft every incoming request locally, read-only. |
 | `inbox` | List requests that need you. |
 | `show <id>` | One request + its drafted reply. |
 | `draft <id>` | Draft a reply locally with `claude`/`codex` and print it. |
@@ -55,7 +55,7 @@ IDs accept a short prefix (as shown by `inbox`). Need a local space to point at?
 - **Reads** (last 7 days, deny-by-default): agent logs under `~/.claude`, `~/.codex`,
   `~/.openclaw`, `~/.pi`, `~/.opencode`, `~/.hermes`, plus folders you explicitly grant.
   ([`src/agent-logs.js`](src/agent-logs.js), [`src/scope.js`](src/scope.js))
-- **Uploads**: only redacted `{prompt, output}` pairs and prompt chains — secrets masked first.
+- **Uploads**: only redacted `{prompt, output}` pairs and prompt chains, secrets masked first.
   ([`src/redact.js`](src/redact.js), [`src/mesh-client.js`](src/mesh-client.js))
 - **Never leaves**: raw logs, file contents, or secrets. Deep Mode runs **read-only** and only
   the reviewed reply is sent.
