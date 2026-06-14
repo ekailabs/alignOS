@@ -48,14 +48,17 @@
         Connect to it to begin.</p>
       <div class="connect-map">
         <div class="map-title">Backend connection</div>
-        <div class="map-line"><span>Operator gives you</span><b>Space address</b></div>
-        <div class="map-line"><span>This app claims</span><code id="ep-claim">http://localhost:8080/owner/claim</code></div>
-        <div class="map-line"><span>Owner channel</span><code id="ep-owner">http://localhost:8080/owner/a2a</code></div>
-        <div class="map-line"><span>Discovery</span><code id="ep-services">http://localhost:8080/services</code></div>
-        <div class="map-line"><span>Ask endpoint</span><code id="ep-ask">http://localhost:8080/ask-albi?mode=quick</code></div>
+        <div class="map-line"><span>Operator gives you</span><b>Space address + setup code</b></div>
+        <div class="map-line"><span>Private space</span><code id="ep-base">http://localhost:8080</code></div>
+        <div class="map-line"><span>This app claims</span><code id="ep-claim">/owner/claim</code></div>
+        <div class="map-line"><span>Owner channel</span><code id="ep-owner">/owner/a2a</code></div>
+        <div class="map-line"><span>Discovery</span><code id="ep-services">/services</code></div>
+        <div class="map-line"><span>Ask endpoint</span><code id="ep-ask">/ask-albi?mode=quick</code></div>
       </div>
       <label class="field"><span>Space address</span>
-        <input id="connect-url" value="http://localhost:8080" autocomplete="off" spellcheck="false" /></label>
+        <input id="connect-url" value="http://localhost:8080" placeholder="https://<app-id>-8080.dstack-pha-prod7.phala.network" autocomplete="off" spellcheck="false" /></label>
+      <label class="field"><span>Setup code</span>
+        <input id="connect-token" placeholder="one-time token or owner password" autocomplete="off" spellcheck="false" /></label>
       <button class="btn primary" id="connect-go">Connect →</button>
       <div class="err" id="connect-err" hidden></div>
       <p class="foot">Nothing is shared without your okay. Replies are written by your assistant

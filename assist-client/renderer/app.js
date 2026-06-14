@@ -102,16 +102,34 @@ async function refreshHealth() { try { const h = await api.health(); setConn(!!(
 let _healthTimer = null;
 function startHealthPolling() { refreshHealth(); if (!_healthTimer) _healthTimer = setInterval(refreshHealth, 5000); }
 
+function normalizeBackendUrl(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return '';
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(text);
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `${local ? 'http' : 'https'}://${text}`;
+  try {
+    const u = new URL(withScheme);
+    u.pathname = u.pathname.replace(/\/+$/, '');
+    u.search = '';
+    u.hash = '';
+    return u.toString().replace(/\/$/, '');
+  } catch {
+    return '';
+  }
+}
+
 function backendBase() {
-  return ($('connect-url').value || 'http://localhost:8080').trim().replace(/\/$/, '');
+  return normalizeBackendUrl($('connect-url').value) || 'http://localhost:8080';
 }
 
 function refreshBackendPreview() {
   const base = backendBase();
-  $('ep-claim').textContent = `${base}/owner/claim`;
-  $('ep-owner').textContent = `${base}/owner/a2a`;
-  $('ep-services').textContent = `${base}/services`;
-  $('ep-ask').textContent = `${base}/ask-albi?mode=quick`;
+  $('ep-base').textContent = base;
+  $('ep-base').title = base;
+  $('ep-claim').title = `${base}/owner/claim`;
+  $('ep-owner').title = `${base}/owner/a2a`;
+  $('ep-services').title = `${base}/services`;
+  $('ep-ask').title = `${base}/ask-albi?mode=quick`;
 }
 
 async function boot() {
@@ -266,9 +284,11 @@ function wire() {
   $('connect-url').addEventListener('input', refreshBackendPreview);
   $('welcome-start').addEventListener('click', () => { setView('connect'); refreshBackendPreview(); });
   $('connect-go').addEventListener('click', async () => {
-    const url = $('connect-url').value.trim();
-    if (!url) { $('connect-err').textContent = 'Enter your space address.'; $('connect-err').hidden = false; return; }
-    try { await api.setup({ url }); $('connect-err').hidden = true; setView('consent'); }
+    const url = normalizeBackendUrl($('connect-url').value);
+    const token = $('connect-token').value.trim();
+    if (!url) { $('connect-err').textContent = 'Enter a valid space address.'; $('connect-err').hidden = false; return; }
+    if (!token) { $('connect-err').textContent = 'Enter the setup code from the operator.'; $('connect-err').hidden = false; return; }
+    try { await api.setup({ url, token }); $('connect-err').hidden = true; setView('consent'); }
     catch (e) { $('connect-err').textContent = e.message; $('connect-err').hidden = false; }
   });
   $('consent-approve').addEventListener('click', seedAndEnter);
