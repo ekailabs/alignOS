@@ -38,16 +38,30 @@ function signHeaders(method, pth, bodyText) {
   };
 }
 
+// Old-node signals: a build from before the rebind-on-reconnect change. We can't fix the
+// remote, so surface a clear, actionable message instead of the raw rejection.
+const OLD_NODE = 'This private space is running an older node. Ask the operator to upgrade and restart the TEE node, then connect again.';
+
 // Claim a node on first connect; registers our public key as the owner.
 async function claim(url, token = '') {
   const base = url.replace(/\/$/, '');
-  const res = await http.request(base + '/owner/claim', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ pubkey: pubKeyB64() }),
-  });
+  let res;
+  try {
+    res = await http.request(base + '/owner/claim', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pubkey: pubKeyB64() }),
+    });
+  } catch {
+    throw new Error("Can't reach that space. Check the address and that it's running.");
+  }
+  if (res.status === 404) throw new Error(OLD_NODE); // no /owner/claim on the old node
   const j = await res.json().catch(() => ({}));
-  if (!j.ok) throw new Error(j.error || `claim failed (HTTP ${res.status})`);
+  if (!j.ok) {
+    const e = j.error || `claim failed (HTTP ${res.status})`;
+    if (/already claimed|invalid token/i.test(e)) throw new Error(OLD_NODE);
+    throw new Error(e);
+  }
   return j;
 }
 
