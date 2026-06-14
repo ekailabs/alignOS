@@ -45,8 +45,19 @@ async function ownerPost(pth, payload, { url } = {}) {
 }
 const uploadKnowledge = (pairs) => ownerPost('/owner/knowledge', { pairs });
 
+// liveness: is the private space (assist-remote) reachable?
+async function health(timeoutMs = 3000) {
+  const base = (load().url || 'http://localhost:8080').replace(/\/$/, '');
+  try {
+    const res = await fetch(base + '/', { signal: AbortSignal.timeout(timeoutMs) });
+    return { ok: res.ok, url: base };
+  } catch {
+    return { ok: false, url: base };
+  }
+}
+
 // public surface (peer simulation / interop)
 const peerAsk = (text, display, url) =>
   rpc('message/send', { message: { role: 'user', parts: [{ kind: 'text', text }], messageId: rid() }, from: { display } }, { url });
 
-module.exports = { rpc, rid, inbox, handled, getTask, approve, followup, decline, uploadKnowledge, peerAsk };
+module.exports = { rpc, rid, inbox, handled, getTask, approve, followup, decline, uploadKnowledge, health, peerAsk };

@@ -13,7 +13,7 @@ let win;
 function createWindow() {
   win = new BrowserWindow({
     width: 720, height: 880, minWidth: 560, minHeight: 600,
-    title: 'Assist', backgroundColor: '#EFEDE6', titleBarStyle: 'hiddenInset',
+    title: 'AlignOS', backgroundColor: '#EFEDE6', titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -28,6 +28,7 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
 ipcMain.handle('bootstrap', async () => { const c = cfg.load(); return { connected: !!c.url, onboarded: !!scope.load().onboarded, url: c.url || '' }; });
+ipcMain.handle('health', async () => mc.health());
 ipcMain.handle('setup', async (_e, { url, token }) => {
   const clean = String(url).replace(/\/$/, '');
   cfg.save({ url: clean });

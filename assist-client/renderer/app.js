@@ -30,6 +30,7 @@ const MOCK = (() => {
     grantFolders: async () => ({ ok: true }),
     skipOnboarding: async () => ({ ok: true }),
     seed: async () => ({ uploaded: 60 }),
+    health: async () => ({ ok: true }),
     pickFolder: async () => '/Users/you/Documents/example',
     inbox: async () => tasks.filter((t) => ['input-required', 'auth-required'].includes(t.status.state)),
     handled: async () => tasks.filter((t) => ['completed', 'canceled', 'rejected'].includes(t.status.state)),
@@ -66,6 +67,17 @@ let current = null;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 2200); }
 function fail(msg) { $('error-text').textContent = msg || 'Unknown error'; setView('error'); }
 
+// Backend connection indicator (header) — polls the node's liveness.
+function setConn(ok) {
+  const c = $('conn'); if (!c) return;
+  c.classList.toggle('on', ok);
+  c.classList.toggle('off', !ok);
+  $('conn-label').textContent = ok ? 'Connected' : 'Offline';
+}
+async function refreshHealth() { try { const h = await api.health(); setConn(!!(h && h.ok)); } catch { setConn(false); } }
+let _healthTimer = null;
+function startHealthPolling() { refreshHealth(); if (!_healthTimer) _healthTimer = setInterval(refreshHealth, 5000); }
+
 function backendBase() {
   return ($('connect-url').value || 'http://localhost:8080').trim().replace(/\/$/, '');
 }
@@ -83,6 +95,7 @@ async function boot() {
   try {
     const b = await api.bootstrap();
     if (MOCKED) $('priv').textContent = 'Private · demo';
+    startHealthPolling();
     if (!b.connected) return setView('connect');
     await loadInbox(); openFromHash();
   } catch (e) { fail(e.message); }

@@ -21,6 +21,10 @@ body{background:var(--bg);font-family:var(--sans);color:var(--ink);-webkit-font-
 .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .link{font-family:var(--sans);font-size:13px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0}
 .link:hover{color:var(--ink)}
+.conn{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:500}
+.conn .cdot{width:7px;height:7px;border-radius:50%;background:var(--faint);transition:background .2s}
+.conn.on{color:var(--green)} .conn.on .cdot{background:var(--green);box-shadow:0 0 6px var(--green)}
+.conn.off{color:var(--muted)} .conn.off .cdot{background:#C2553F}
 
 /* cards / states */
 .card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:24px 22px;
