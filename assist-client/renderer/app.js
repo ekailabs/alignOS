@@ -17,6 +17,11 @@ const MOCK = (() => {
     { id: 'h2', from: { display: "Sam's assistant" }, status: { state: 'canceled', timestamp: new Date(Date.now() - 9000000).toISOString() },
       history: [{ role: 'user', parts: [{ kind: 'text', text: 'Can you forward the investor deck?' }] }], artifacts: [] },
   ];
+  const mockDrafts = {
+    t1: { status: 'ready', text: tasks[0].artifacts[0].parts[0].text, cli: 'claude',
+      workspace: '/Users/you/Documents/win26/ekai/alignOS', at: new Date().toISOString() },
+    t2: { status: 'drafting', at: new Date().toISOString() },
+  };
   return {
     bootstrap: async () => ({ connected: true, onboarded: true, url: 'demo' }),
     setup: async () => ({ ok: true }),
@@ -71,7 +76,20 @@ const MOCK = (() => {
     inbox: async () => tasks.filter((t) => ['input-required', 'auth-required'].includes(t.status.state)),
     handled: async () => tasks.filter((t) => ['completed', 'canceled', 'rejected'].includes(t.status.state)),
     show: async (id) => tasks.find((t) => t.id === id),
-    approve: async (id) => { const t = tasks.find((t) => t.id === id); t.status.state = 'completed'; return t; },
+    approve: async (id, replyText) => {
+      const t = tasks.find((t) => t.id === id);
+      t.status.state = 'completed';
+      if (replyText) t.artifacts = [{ parts: [{ kind: 'text', text: replyText }] }];
+      return t;
+    },
+    drafts: async () => mockDrafts,
+    draftGet: async (id) => mockDrafts[id] || null,
+    redraft: async (id) => {
+      mockDrafts[id] = { status: 'ready', text: 'Locally redrafted reply.', cli: 'claude',
+        workspace: '/Users/you/Documents/win26/ekai/alignOS', at: new Date().toISOString() };
+      return mockDrafts[id];
+    },
+    onDraftUpdated: () => {},
     followup: async (id) => tasks.find((t) => t.id === id),
     decline: async (id) => { const t = tasks.find((t) => t.id === id); t.status.state = 'canceled'; return t; },
   };
@@ -95,7 +113,9 @@ const ago = (when) => {
 const SECTIONS = ['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded', 'folders', 'inbox', 'agent-cards', 'allclear', 'review', 'handled', 'prefs', 'error'];
 const OUTCOME = { completed: 'Sent', canceled: 'Declined', rejected: 'Declined' };
 const ONBOARDING = new Set(['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded']);
+let _view = null;
 function setView(v) {
+  _view = v;
   for (const s of SECTIONS) $(s).hidden = s !== v;
   $('head').hidden = ONBOARDING.has(v);
 }
@@ -265,19 +285,26 @@ function openFromHash() {
   if (m) openReview(decodeURIComponent(m[1]));
 }
 
+function draftChip(d) {
+  const map = { drafting: ['dchip drafting', 'Drafting…'], ready: ['dchip ready', 'Draft ready'], error: ['dchip error', 'Draft failed'] };
+  const c = d && map[d.status];
+  return c ? `<span class="${c[0]}">${esc(c[1])}</span>` : '';
+}
+
 async function loadInbox() {
   try {
     const tasks = await api.inbox();
     if (!tasks.length) { setView('allclear'); return; }
     setView('inbox');
     $('inbox-sub').textContent = `${tasks.length} request${tasks.length > 1 ? 's' : ''} need you`;
+    const draftMap = api.drafts ? await api.drafts().catch(() => ({})) : {};
     const ul = $('inbox-list'); ul.innerHTML = '';
     for (const t of tasks) {
       const who = (t.from && t.from.display) || 'someone';
       const li = document.createElement('li');
       li.className = 'row';
       li.innerHTML = `<span class="av">${esc(initial(who))}</span><span class="rmain">` +
-        `<span class="rtop"><span class="who">${esc(who)}</span><span class="ago">${esc(ago(t.status.timestamp))}</span></span>` +
+        `<span class="rtop"><span class="who">${esc(who)}</span>${draftChip(draftMap[t.id])}<span class="ago">${esc(ago(t.status.timestamp))}</span></span>` +
         `<span class="ask">${esc(text(t.history && t.history[0] && t.history[0].parts))}</span></span>`;
       li.addEventListener('click', () => openReview(t.id));
       ul.appendChild(li);
