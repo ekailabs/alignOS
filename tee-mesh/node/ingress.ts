@@ -16,7 +16,7 @@ import {
   TaskStore,
   textMessage,
 } from "./inbox.ts";
-import { route } from "./router.ts";
+import { rank, route } from "./router.ts";
 import { DASHBOARD_HTML } from "./dashboard.ts";
 
 const STALE_MS = 90_000;
@@ -310,16 +310,32 @@ async function requestProvider(
   await appendEvent("owner_provider_request_created", { task: task.id, mode });
 
   let target: URL;
+  let routedOwner = "";
   const explicitUrl = String(body.url ?? "").trim();
   if (explicitUrl) {
     target = new URL(explicitUrl);
   } else {
-    const owner = String(body.owner ?? "").trim().toLowerCase();
-    if (!owner) throw new Error("owner or url is required");
-    const peer = ctx.dir.all().find((c) =>
-      c.owner?.handle?.toLowerCase() === owner
-    );
-    if (!peer) throw new Error(`unknown provider owner: ${owner}`);
+    let owner = String(body.owner ?? "").trim().toLowerCase();
+    const peers = ctx.dir.all();
+    let peer = owner
+      ? peers.find((c) =>
+        c.owner?.handle?.toLowerCase() === owner ||
+        c.owner?.display_name?.toLowerCase() === owner
+      )
+      : undefined;
+    if (!owner) {
+      const best = rank(question, peers)[0];
+      if (!best || best.score === 0) {
+        throw new Error("no matching provider; add an author name");
+      }
+      peer = peers.find((c) =>
+        c.node_id === best.node_id || c.app_id === best.app_id ||
+        (c.agents ?? []).some((a) => a.url === best.url)
+      );
+      owner = peer?.owner?.handle?.toLowerCase() ?? peer?.app_id ?? "";
+      routedOwner = owner;
+    }
+    if (!peer || !owner) throw new Error(`unknown provider owner: ${owner}`);
     target = new URL(
       `/ask-${owner}?mode=${encodeURIComponent(mode)}`,
       peer.gateway_url,
@@ -356,6 +372,7 @@ async function requestProvider(
     await appendEvent("owner_provider_request_finished", {
       task: task.id,
       provider: target.toString(),
+      routed_owner: routedOwner || undefined,
       status: resp.status,
     });
   } catch (e) {

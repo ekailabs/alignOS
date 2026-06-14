@@ -18,7 +18,6 @@
         <span class="pill" id="priv">Private</span>
         <button class="link" id="open-inbox">Inbox</button>
         <button class="link" id="open-cards">Known Agents</button>
-        <button class="link" id="open-handled">History</button>
         <button class="link" id="open-prefs">Preferences</button>
       </span>
     </header>
@@ -119,7 +118,18 @@
 
     <!-- INBOX -->
     <section class="card inbox" id="inbox" hidden>
-      <h1 class="ihead">Inbox</h1>
+      <div class="tabs">
+        <button class="tab on" id="tab-inbox">Inbox</button>
+        <button class="tab" id="tab-history">History</button>
+      </div>
+      <div class="inbox-ask" id="inbox-ask">
+        <div class="inbox-ask-row">
+          <input id="inbox-ask-author" placeholder="Author name" autocomplete="off" spellcheck="false" />
+          <button class="btn small primary" id="inbox-ask-send">Ask →</button>
+        </div>
+        <textarea id="inbox-ask-text" rows="2" placeholder="Ask anyone in the mesh…"></textarea>
+        <div class="inbox-ask-reply" id="inbox-ask-reply" hidden></div>
+      </div>
       <p class="isub" id="inbox-sub">—</p>
       <ul class="list" id="inbox-list"></ul>
     </section>
@@ -187,15 +197,6 @@
         <button class="btn outline" id="rv-followup">Follow up</button>
         <button class="btn primary" id="rv-approve">Approve &amp; send</button>
       </div>
-    </section>
-
-    <!-- HANDLED (history) -->
-    <section class="card inbox" id="handled" hidden>
-      <button class="link back" id="handled-back">← Inbox</button>
-      <h1 class="ihead">History</h1>
-      <p class="isub">What your assistant has sent or declined on your behalf, with you in the loop.</p>
-      <ul class="list" id="handled-list"></ul>
-      <p class="sub" id="handled-empty" hidden>No history yet.</p>
     </section>
 
     <!-- PREFERENCES (Connections + Auto-handle wired in a later slice) -->

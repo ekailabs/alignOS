@@ -123,6 +123,9 @@ body.onb .setup{padding:48px 36px}
 .ihead{font-family:var(--serif);font-size:25px;letter-spacing:-.02em;margin-bottom:4px}
 .isub{font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.5}
 .list{list-style:none}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tab{border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--muted);font-family:var(--sans);font-size:12.5px;font-weight:600;padding:6px 11px;cursor:pointer}
+.tab.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .row{display:flex;gap:12px;padding:14px 12px;border-radius:12px;border:1px solid transparent;cursor:pointer;transition:background .15s,border-color .15s}
 .row+.row{margin-top:4px}
 .row:hover{background:#F6F4ED;border-color:var(--line)}
@@ -134,6 +137,13 @@ body.onb .setup{padding:48px 36px}
 .ago{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap}
 .ask{display:block;margin-top:3px;font-size:13px;color:var(--muted);line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card.inbox .sub{text-align:center;color:var(--muted);font-size:13.5px;padding:26px 0 8px}
+.inbox-ask{margin:14px 0 18px;border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden}
+.inbox-ask-row{display:flex;gap:8px;align-items:center;padding:10px;border-bottom:1px solid var(--line);background:#FAFAFE}
+.inbox-ask-row input{flex:1;min-width:0;border:1px solid var(--line-2);border-radius:9px;padding:8px 10px;font-family:var(--sans);font-size:13px;color:var(--ink);background:#fff;outline:none}
+.inbox-ask-row input:focus{border-color:#B9B8DC;box-shadow:0 0 0 3px rgba(52,53,122,.08)}
+.inbox-ask textarea{display:block;width:100%;min-height:62px;resize:vertical;border:none;padding:12px 13px;font-family:var(--sans);font-size:13.5px;line-height:1.5;color:var(--ink);background:#fff;outline:none}
+.inbox-ask-reply{border-top:1px solid var(--line);padding:12px 13px;font-size:13px;line-height:1.55;color:#2C281F;white-space:pre-wrap}
+.inbox-ask-reply.error{color:var(--danger)}
 
 /* agent cards */
 .cards-head{margin-bottom:16px}

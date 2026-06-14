@@ -51,7 +51,6 @@ async function callTool(name, args) {
   switch (name) {
     case 'alignos_ask_provider':
       if (!args.question) throw new Error('question is required');
-      if (!args.owner && !args.url) throw new Error('owner or url is required');
       return mc.requestProvider(args);
     case 'alignos_inbox_list':
       return mc.inbox();

@@ -134,7 +134,7 @@ function whoFrom(t) {
   return d;
 }
 
-const SECTIONS = ['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded', 'folders', 'inbox', 'agent-cards', 'ask', 'allclear', 'review', 'handled', 'prefs', 'error'];
+const SECTIONS = ['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded', 'folders', 'inbox', 'agent-cards', 'ask', 'allclear', 'review', 'prefs', 'error'];
 const OUTCOME = { completed: 'Sent', canceled: 'Rejected', rejected: 'Rejected' };
 const ONBOARDING = new Set(['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded']);
 let _view = null;
@@ -320,24 +320,83 @@ function draftChip(d) {
   return c ? `<span class="${c[0]}">${esc(c[1])}</span>` : '';
 }
 
+// Demo samples (Shashank's domain) so approve / reject / follow-up is always demoable, even when
+// the connected space has no pending requests. Sample ids start with "demo-"; actions resolve
+// locally (no node call) and move the item into History.
+const _t = (mins) => new Date(Date.now() - mins * 60000).toISOString();
+const _ws = '/Users/sha/Documents/win26/ekai/alignOS';
+let _demoInbox = [
+  { id: 'demo-1', from: { display: 'Priya' }, status: { state: 'input-required', timestamp: _t(6) },
+    history: [{ role: 'user', parts: [{ kind: 'text', text: 'How would you design a rate limiter for a multi-tenant API?' }] }],
+    _draft: { status: 'ready', cli: 'claude', workspace: _ws,
+      text: 'I’d rate-limit per tenant, not per IP: a token bucket keyed on (tenant_id, route_class), with a small global ceiling so one noisy tenant can’t starve the rest. Keep counters in Redis with a sliding window and return Retry-After so clients back off cleanly. Start simple, add per-plan tiers once we see real traffic shapes.' } },
+  { id: 'demo-2', from: { display: 'Mara' }, status: { state: 'input-required', timestamp: _t(41) },
+    history: [{ role: 'user', parts: [{ kind: 'text', text: 'Message queue or direct RPC for agent-to-agent calls?' }] }],
+    _draft: { status: 'ready', cli: 'claude', workspace: _ws,
+      text: 'Default to direct RPC where the caller needs an answer now: simpler to reason about and debug. Put a queue in front only for fan-out, retries, or genuinely async work. For our mesh, a thin RPC layer with idempotency keys covers most of it; reach for a queue when we actually hit backpressure.' } },
+  { id: 'demo-3', from: { display: 'Devon' }, status: { state: 'input-required', timestamp: _t(180) },
+    history: [{ role: 'user', parts: [{ kind: 'text', text: 'How should the agent routing layer scale as we add nodes?' }] }],
+    _draft: { status: 'ready', cli: 'claude', workspace: _ws,
+      text: 'Keep membership on-chain as the source of truth and gossip the rich cards, so any node resolves a peer without a central registry. Cache directories locally with short TTLs and keep routing decisions stateless so nodes scale horizontally. The hard part is liveness: lean on last-seen plus backoff rather than a heartbeat service.' } },
+];
+let _demoHandled = [];
+const isDemo = (id) => /^demo-/.test(id);
+const demoTask = (id) => _demoInbox.concat(_demoHandled).find((t) => t.id === id);
+const showTask = (id) => (isDemo(id) ? Promise.resolve(demoTask(id)) : api.show(id));
+const getDraft = (id) => (isDemo(id) ? Promise.resolve((demoTask(id) || {})._draft || null)
+  : (api.draftGet ? api.draftGet(id).catch(() => null) : Promise.resolve(null)));
+function demoResolve(id, state, replyText) {
+  const i = _demoInbox.findIndex((t) => t.id === id); if (i < 0) return;
+  const t = _demoInbox.splice(i, 1)[0];
+  t.status = { state, timestamp: new Date().toISOString() };
+  const body = replyText != null && replyText !== '' ? replyText : (t._draft && t._draft.text);
+  if (state === 'completed' && body) t.artifacts = [{ parts: [{ kind: 'text', text: body }] }];
+  _demoHandled.unshift(t);
+}
+function setTabUI(tab) {
+  const ti = $('tab-inbox'), th = $('tab-history');
+  if (ti) ti.classList.toggle('on', tab === 'inbox');
+  if (th) th.classList.toggle('on', tab === 'history');
+  if ($('inbox-ask')) $('inbox-ask').hidden = tab !== 'inbox';
+}
+function renderRows(tasks, draftMap, kind) {
+  const ul = $('inbox-list'); ul.innerHTML = '';
+  for (const t of tasks) {
+    const who = whoFrom(t);
+    const d = isDemo(t.id) ? t._draft : (draftMap && draftMap[t.id]);
+    const right = kind === 'history'
+      ? `<span class="ago">${esc(OUTCOME[t.status.state] || t.status.state)} · ${esc(ago(t.status.timestamp))}</span>`
+      : `${draftChip(d)}<span class="ago">${esc(ago(t.status.timestamp))}</span>`;
+    const li = document.createElement('li');
+    li.className = 'row';
+    li.innerHTML = `<span class="av">${esc(initial(who))}</span><span class="rmain">` +
+      `<span class="rtop"><span class="who">${esc(who)}</span>${right}</span>` +
+      `<span class="ask">${esc(text(t.history && t.history[0] && t.history[0].parts))}</span></span>`;
+    li.addEventListener('click', () => openReview(t.id));
+    ul.appendChild(li);
+  }
+}
 async function loadInbox() {
   try {
-    const tasks = await api.inbox();
-    if (!tasks.length) { setView('allclear'); return; }
-    setView('inbox');
-    $('inbox-sub').textContent = `${tasks.length} request${tasks.length > 1 ? 's' : ''} need you`;
+    let tasks = await api.inbox();
+    if (!tasks.length) tasks = _demoInbox; // demo fallback so the review flow is always demoable
+    setView('inbox'); setTabUI('inbox');
+    $('inbox-sub').textContent = tasks.length
+      ? `${tasks.length} request${tasks.length > 1 ? 's' : ''} need you`
+      : 'Nothing needs your call right now.';
     const draftMap = api.drafts ? await api.drafts().catch(() => ({})) : {};
-    const ul = $('inbox-list'); ul.innerHTML = '';
-    for (const t of tasks) {
-      const who = whoFrom(t);
-      const li = document.createElement('li');
-      li.className = 'row';
-      li.innerHTML = `<span class="av">${esc(initial(who))}</span><span class="rmain">` +
-        `<span class="rtop"><span class="who">${esc(who)}</span>${draftChip(draftMap[t.id])}<span class="ago">${esc(ago(t.status.timestamp))}</span></span>` +
-        `<span class="ask">${esc(text(t.history && t.history[0] && t.history[0].parts))}</span></span>`;
-      li.addEventListener('click', () => openReview(t.id));
-      ul.appendChild(li);
-    }
+    renderRows(tasks, draftMap, 'inbox');
+  } catch (e) { fail(e.message); }
+}
+async function loadHistory() {
+  try {
+    let tasks = await api.handled().catch(() => []);
+    tasks = _demoHandled.concat(tasks); // include resolved demo samples
+    setView('inbox'); setTabUI('history');
+    $('inbox-sub').textContent = tasks.length
+      ? 'What your assistant has sent or declined on your behalf, with you in the loop.'
+      : 'No history yet.';
+    renderRows(tasks, null, 'history');
   } catch (e) { fail(e.message); }
 }
 
@@ -352,25 +411,7 @@ async function openPrefs() {
     catch { pc.innerHTML = '<div class="prefs-note">Connect to a space to see your agent card.</div>'; }
   }
 }
-async function loadHandled() {
-  try {
-    const tasks = await api.handled();
-    setView('handled');
-    const ul = $('handled-list'); ul.innerHTML = '';
-    $('handled-empty').hidden = tasks.length > 0;
-    for (const t of tasks) {
-      const who = whoFrom(t);
-      const out = OUTCOME[t.status.state] || t.status.state;
-      const li = document.createElement('li');
-      li.className = 'row';
-      li.innerHTML = `<span class="av">${esc(initial(who))}</span><span class="rmain">` +
-        `<span class="rtop"><span class="who">${esc(who)}</span><span class="ago">${esc(out)} · ${esc(ago(t.status.timestamp))}</span></span>` +
-        `<span class="ask">${esc(text(t.history && t.history[0] && t.history[0].parts))}</span></span>`;
-      li.addEventListener('click', () => openReview(t.id));
-      ul.appendChild(li);
-    }
-  } catch (e) { fail(e.message); }
-}
+const loadHandled = loadHistory; // History now lives as a tab inside the Inbox screen
 
 const shortId = (s) => {
   const text = String(s || '');
@@ -538,6 +579,30 @@ async function sendAsk() {
   btn.disabled = false; btn.textContent = 'Ask →';
 }
 
+async function sendInboxAsk() {
+  const q = $('inbox-ask-text').value.trim();
+  if (!q) return;
+  const owner = $('inbox-ask-author').value.trim().replace(/^@/, '').toLowerCase();
+  const btn = $('inbox-ask-send');
+  const box = $('inbox-ask-reply');
+  btn.disabled = true; btn.textContent = 'Asking…';
+  box.hidden = true; box.classList.remove('error');
+  try {
+    const payload = { question: q, mode: 'quick' };
+    if (owner) payload.owner = owner;
+    const res = await api.askProvider(payload);
+    const reply = taskReplyText(res);
+    box.textContent = reply || (owner ? `Sent to ${owner}.` : 'Routed and sent.');
+    box.hidden = false;
+    $('inbox-ask-text').value = '';
+  } catch (e) {
+    box.textContent = (e && e.message) || String(e);
+    box.classList.add('error');
+    box.hidden = false;
+  }
+  btn.disabled = false; btn.textContent = 'Ask →';
+}
+
 // Show the draft for a non-terminal task: prefer the local overlay draft (editable when ready);
 // fall back to the remote artifact when there's no local draft.
 function renderDraft(t, d, who) {
@@ -580,8 +645,8 @@ function renderDraft(t, d, who) {
 
 async function openReview(id) {
   try {
-    const t = await api.show(id); current = t;
-    const who = (t.from && t.from.display) || 'someone';
+    const t = await showTask(id); current = t;
+    const who = whoFrom(t);
     $('rv-who').textContent = who;
     $('rv-age').textContent = ago(t.status.timestamp);
     $('rv-chip').hidden = false; // v1: every known peer shows as a connection
@@ -594,11 +659,11 @@ async function openReview(id) {
       $('rv-draft-edit').hidden = true; $('rv-draft').hidden = false; $('rv-draft-actions').hidden = true;
       const sent = t.status.state === 'completed';
       $('rv-lbl').textContent = 'Drafted reply';
-      $('rv-draft').textContent = sent ? (text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts) || '(no reply)') : '(rejected — nothing was sent)';
+      $('rv-draft').textContent = sent ? (text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts) || '(no reply)') : '(rejected, nothing was sent)';
       $('rv-prov').textContent = '';
       $('rv-consequence').innerHTML = `<b>${sent ? 'Sent ✓' : 'Rejected'}</b> · ${esc(ago(t.status.timestamp))}`;
     } else {
-      const d = api.draftGet ? await api.draftGet(id).catch(() => null) : null;
+      const d = await getDraft(id);
       renderDraft(t, d, who);
     }
     setView('review');
@@ -620,6 +685,9 @@ function wire() {
   $('seeded-go').addEventListener('click', loadInbox);
   $('consent-info').addEventListener('click', () => { const l = $('leaves'); l.hidden = !l.hidden; });
   $('open-inbox').addEventListener('click', loadInbox);
+  $('tab-inbox').addEventListener('click', loadInbox);
+  $('tab-history').addEventListener('click', loadHistory);
+  $('inbox-ask-send').addEventListener('click', sendInboxAsk);
   $('open-cards').addEventListener('click', loadAgentCards);
   $('cards-back').addEventListener('click', loadInbox);
   $('cards-service-list').addEventListener('click', (e) => {
@@ -629,9 +697,7 @@ function wire() {
   });
   $('ask-back').addEventListener('click', loadAgentCards);
   $('ask-send').addEventListener('click', sendAsk);
-  $('open-handled').addEventListener('click', loadHandled);
-  $('allclear-handled').addEventListener('click', loadHandled);
-  $('handled-back').addEventListener('click', loadInbox);
+  $('allclear-handled').addEventListener('click', loadHistory);
   $('open-prefs').addEventListener('click', openPrefs);
   $('prefs-reconnect').addEventListener('click', async () => {
     const url = normalizeBackendUrl($('prefs-url-input').value);
@@ -668,8 +734,11 @@ function wire() {
   $('rv-approve').addEventListener('click', async () => {
     const editEl = $('rv-draft-edit');
     const replyText = editEl.hidden ? null : editEl.value.trim();
-    try { await api.approve(current.id, replyText); toast('Approved — sent.'); loadInbox(); }
-    catch (e) { fail(e.message); }
+    try {
+      if (isDemo(current.id)) demoResolve(current.id, 'completed', replyText);
+      else await api.approve(current.id, replyText);
+      toast('Approved. Sent.'); loadInbox();
+    } catch (e) { fail(e.message); }
   });
   $('rv-redraft').addEventListener('click', async () => {
     $('rv-draft-edit').hidden = true; $('rv-draft').hidden = false;
@@ -683,7 +752,13 @@ function wire() {
     if (_view === 'review' && current && current.id === taskId) openReview(taskId);
     else if (_view === 'inbox') loadInbox();
   });
-  $('rv-decline').addEventListener('click', async () => { try { await api.decline(current.id); toast('Rejected.'); loadInbox(); } catch (e) { fail(e.message); } });
+  $('rv-decline').addEventListener('click', async () => {
+    try {
+      if (isDemo(current.id)) demoResolve(current.id, 'canceled');
+      else await api.decline(current.id);
+      toast('Rejected.'); loadInbox();
+    } catch (e) { fail(e.message); }
+  });
   $('rv-followup').addEventListener('click', () => {
     const c = $('rv-compose'); c.hidden = !c.hidden;
     $('rv-followup').classList.toggle('on', !c.hidden);
@@ -691,8 +766,13 @@ function wire() {
   });
   $('rv-compose-send').addEventListener('click', async () => {
     const msg = $('rv-compose-text').value.trim(); if (!msg) return;
-    try { await api.followup(current.id, msg); toast('Follow-up sent.'); openReview(current.id); }
-    catch (e) { fail(e.message); }
+    try {
+      if (isDemo(current.id)) {
+        const t = demoTask(current.id);
+        if (t) t._draft = { ...(t._draft || {}), status: 'ready', text: `(Revised per your note: ${msg})\n\n${(t._draft && t._draft.text) || ''}` };
+      } else { await api.followup(current.id, msg); }
+      toast('Follow-up sent.'); openReview(current.id);
+    } catch (e) { fail(e.message); }
   });
 }
 
