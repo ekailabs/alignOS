@@ -1,6 +1,6 @@
 services:
   node:
-    image: ghcr.io/amiller/alignos-node:latest
+    image: ghcr.io/sm86/alignos-node:latest
     ports: ["8080:8080"]
     environment:
       ALIGN_SELF_URL: ${ALIGN_SELF_URL}
@@ -20,7 +20,7 @@ services:
       - alignos-data:/data
     networks: [default, agents]
   echo:
-    image: ghcr.io/amiller/alignos-echo:latest
+    image: ghcr.io/sm86/alignos-echo:latest
     networks: [agents]
 networks:
   agents:

@@ -2,7 +2,7 @@
 # node + one skill container on an internal network (node is sole egress); dstack socket mounted.
 services:
   node:
-    image: ghcr.io/amiller/alignos-node:latest
+    image: ghcr.io/sm86/alignos-node:latest
     ports: ["8080:8080"]
     environment:
       ALIGN_SELF_URL: ${ALIGN_SELF_URL}
@@ -24,7 +24,7 @@ services:
       - alignos-data:/data
     networks: [default, agents]
   skill:
-    image: ghcr.io/amiller/alignos-skill:latest
+    image: ghcr.io/sm86/alignos-skill:latest
     environment:
       SKILL: ${SKILL}
     networks: [agents]

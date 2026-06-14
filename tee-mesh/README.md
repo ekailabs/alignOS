@@ -72,7 +72,7 @@ all three converge and a cross-node agent call resolves.
   domain). This is a *separate* chain from the registry and does not need to match it.
 
 ## Deploy to 3 Phala CVMs (prod7)
-Images are pulled from ghcr (`ghcr.io/amiller/alignos-{node,skill}`); the manifest is
+Images are pulled from ghcr (`ghcr.io/sm86/alignos-{node,skill}`); the manifest is
 passed inline via `ALIGN_MANIFEST_JSON` (no host bind-mounts on the CVM).
 1. `PRIVATE_KEY=0x… bash scripts/deploy-registry.sh` → record `REGISTRY_CONTRACT`.
 2. Per CVM: an env file with `REGISTRY_*`/`PRIVATE_KEY` + a distinct `ALIGN_MANIFEST_JSON`.
