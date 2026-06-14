@@ -35,14 +35,16 @@ function buildPrompt(task) {
   const who = (task.from && task.from.display) || 'someone';
   const ask = partsText(task.history && task.history[0] && task.history[0].parts);
   return [
-    `You are drafting a reply on behalf of the owner of this workspace.`,
-    `${who} sent this request:`,
+    `You are drafting a reply the owner of this workspace will send to ${who}.`,
+    `Use this workspace's files for grounding when relevant, but do not modify anything (read-only).`,
     ``,
+    `${who} sent:`,
+    `"""`,
     ask,
+    `"""`,
     ``,
-    `Write the reply the owner would send. Ground it in this workspace's files when relevant.`,
-    `Reply in plain text only — no preamble, no markdown headers, just the message body.`,
-    `Do not modify any files; this is read-only.`,
+    `Output ONLY the message body to send, in the owner's voice, as plain text.`,
+    `Do not explain your reasoning, describe the workspace, or add any preamble, sign-off, or markdown.`,
   ].join('\n');
 }
 
