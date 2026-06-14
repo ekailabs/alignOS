@@ -1,10 +1,11 @@
 'use strict';
 // Owner credential: an Ed25519 keypair stored 0600 in ~/.alignos/owner.key (JWK). Signs the
-// owner-auth envelope on every /owner request, and claims a node with a one-time setup token.
+// owner-auth envelope on every /owner request, and claims a node on first connect.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { DIR, ensureDir } = require('./config');
+const http = require('./http');
 
 const KEY_PATH = path.join(DIR, 'owner.key');
 
@@ -37,13 +38,13 @@ function signHeaders(method, pth, bodyText) {
   };
 }
 
-// Claim a node with a one-time setup token; registers our public key as the owner.
-async function claim(url, token) {
+// Claim a node on first connect; registers our public key as the owner.
+async function claim(url, token = '') {
   const base = url.replace(/\/$/, '');
-  const res = await fetch(base + '/owner/claim', {
+  const res = await http.request(base + '/owner/claim', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ token, pubkey: pubKeyB64() }),
+    body: JSON.stringify({ pubkey: pubKeyB64() }),
   });
   const j = await res.json().catch(() => ({}));
   if (!j.ok) throw new Error(j.error || `claim failed (HTTP ${res.status})`);

@@ -1,13 +1,12 @@
 // assist-remote: owner authentication.
-//   - setup-token claim: single-use, time-boxed token minted at boot; the first valid claim
-//     binds the owner's Ed25519 public key (TOFU). Persisted so it survives restarts.
+//   - open first claim: the first client to claim binds its Ed25519 public key (TOFU).
+//     Persisted so it survives restarts.
 //   - request envelope: every /owner/* request is signed (Ed25519) over a canonical string;
 //     verified against the registered owner key, with timestamp skew + nonce replay checks.
 import { ed25519 } from "@noble/curves/ed25519";
 import { sha256 } from "@noble/hashes/sha256";
 
 const STATE_PATH = Deno.env.get("ALIGN_OWNER_STATE") ?? "./owner.json";
-const TOKEN_TTL_MS = 15 * 60_000;
 const SKEW_S = 60;
 
 function b64urlToBytes(s: string): Uint8Array {
@@ -42,26 +41,13 @@ try {
   if (j.ownerPubHex) ownerKey = hexToBytes(j.ownerPubHex);
 } catch { /* unclaimed */ }
 
-// One setup token, minted at module load (node boot). Single-use, short-lived.
-const token = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-const tokenExp = Date.now() + TOKEN_TTL_MS;
-let tokenUsed = false;
-
 export function ownerState() {
-  return {
-    claimed: !!ownerKey,
-    token: ownerKey ? null : token,
-    tokenExpiresInMin: Math.round(TOKEN_TTL_MS / 60000),
-  };
+  return { claimed: !!ownerKey };
 }
 
-export function claim(
-  t: string,
-  pubkeyB64: string,
-): { ok: boolean; error?: string } {
-  if (ownerKey) return { ok: false, error: "already claimed" };
-  if (tokenUsed || t !== token) return { ok: false, error: "invalid token" };
-  if (Date.now() > tokenExp) return { ok: false, error: "token expired" };
+// Trust-on-first-use: the first client to claim binds its key. Re-claim by the same key is
+// idempotent (reconnects work); a different key is rejected once claimed.
+export function claim(pubkeyB64: string): { ok: boolean; error?: string } {
   let pk: Uint8Array;
   try {
     pk = b64urlToBytes(pubkeyB64);
@@ -69,13 +55,12 @@ export function claim(
     return { ok: false, error: "bad pubkey" };
   }
   if (pk.length !== 32) return { ok: false, error: "bad pubkey length" };
+  if (ownerKey) {
+    return eq(ownerKey, pk) ? { ok: true } : { ok: false, error: "already claimed by another device" };
+  }
   ownerKey = pk;
-  tokenUsed = true;
   try {
-    Deno.writeTextFileSync(
-      STATE_PATH,
-      JSON.stringify({ ownerPubHex: hex(pk) }),
-    );
+    Deno.writeTextFileSync(STATE_PATH, JSON.stringify({ ownerPubHex: hex(pk) }));
   } catch { /* in-memory only */ }
   return { ok: true };
 }

@@ -48,7 +48,7 @@
         Connect to it to begin.</p>
       <div class="connect-map">
         <div class="map-title">Backend connection</div>
-        <div class="map-line"><span>Operator gives you</span><b>Space address + setup token</b></div>
+        <div class="map-line"><span>Operator gives you</span><b>Space address</b></div>
         <div class="map-line"><span>This app claims</span><code id="ep-claim">http://localhost:8080/owner/claim</code></div>
         <div class="map-line"><span>Owner channel</span><code id="ep-owner">http://localhost:8080/owner/a2a</code></div>
         <div class="map-line"><span>Discovery</span><code id="ep-services">http://localhost:8080/services</code></div>
@@ -56,8 +56,6 @@
       </div>
       <label class="field"><span>Space address</span>
         <input id="connect-url" value="http://localhost:8080" autocomplete="off" spellcheck="false" /></label>
-      <label class="field"><span>Setup token</span>
-        <input id="connect-token" placeholder="shown when your space starts" autocomplete="off" spellcheck="false" /></label>
       <button class="btn primary" id="connect-go">Connect →</button>
       <div class="err" id="connect-err" hidden></div>
       <p class="foot">Nothing is shared without your okay. Replies are written by your assistant

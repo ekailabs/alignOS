@@ -43,15 +43,15 @@ await appendEvent("boot", {
   gateway: gatewayUrl,
 });
 
-// Owner-claim bootstrap: print the single-use setup token so the owner can claim this node.
+// Owner-claim bootstrap: first client to claim binds this node to its owner key.
 const _owner = ownerState();
-if (_owner.token) {
-  console.log(
-    `[alignos] OWNER SETUP TOKEN: ${_owner.token}  (single-use, expires in ${_owner.tokenExpiresInMin}m)\n` +
-      `[alignos]   claim:  alignos setup --url ${gatewayUrl} --token ${_owner.token}`,
-  );
-} else {
+if (_owner.claimed) {
   console.log("[alignos] owner already claimed");
+} else {
+  console.log(
+    `[alignos] owner open for first claim\n` +
+      `[alignos]   claim:  alignos setup --url ${gatewayUrl}`,
+  );
 }
 
 const dir = new Directory();

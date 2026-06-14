@@ -91,7 +91,7 @@ export function makeHandler(ctx: IngressCtx) {
     }
 
     // A2A surface (assist-remote). Public for peers; /owner/* requires the Ed25519 owner
-    // envelope. /owner/claim is the one unauthenticated owner route (setup-token bootstrap).
+    // envelope. /owner/claim is the one unauthenticated route for first-owner bootstrap.
     const a2a = { store: ctx.store, policy: ctx.policy, selfId: ctx.selfId };
 
     const askMatch = p.match(/^\/ask-([a-z0-9-]+)$/i);
@@ -103,11 +103,8 @@ export function makeHandler(ctx: IngressCtx) {
       return handleA2A(a2a, await req.text(), false);
     }
     if (p === "/owner/claim" && req.method === "POST") {
-      const { token, pubkey } = await req.json().catch(() => ({})) as {
-        token?: string;
-        pubkey?: string;
-      };
-      return Response.json(claim(token ?? "", pubkey ?? ""));
+      const { pubkey } = await req.json().catch(() => ({})) as { pubkey?: string };
+      return Response.json(claim(pubkey ?? ""));
     }
     if (p === "/owner/a2a" && req.method === "POST") {
       const bodyText = await req.text();

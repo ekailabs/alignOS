@@ -267,9 +267,8 @@ function wire() {
   $('welcome-start').addEventListener('click', () => { setView('connect'); refreshBackendPreview(); });
   $('connect-go').addEventListener('click', async () => {
     const url = $('connect-url').value.trim();
-    const token = $('connect-token').value.trim();
     if (!url) { $('connect-err').textContent = 'Enter your space address.'; $('connect-err').hidden = false; return; }
-    try { await api.setup({ url, token }); $('connect-err').hidden = true; setView('consent'); }
+    try { await api.setup({ url }); $('connect-err').hidden = true; setView('consent'); }
     catch (e) { $('connect-err').textContent = e.message; $('connect-err').hidden = false; }
   });
   $('consent-approve').addEventListener('click', seedAndEnter);

@@ -73,7 +73,8 @@ cd deploy
 # 1. per-node env (gitignored): copy .env, add the skill + manifest (SELF_URL filled in step 3)
 cp .env .env.x
 printf 'ALIGN_GOSSIP_INTERVAL=5\nSKILL=albi\nALIGN_MANIFEST_JSON=[{"name":"albi","url":"http://skill:8080"}]\n' >> .env.x
-# Owner-assistant service discovery:
+# Owner-assistant service discovery. Setup is tokenless: the first client to connect
+# claims the node by binding its local owner key.
 printf 'ALIGN_OWNER_HANDLE=albi\nALIGN_OWNER_DISPLAY_NAME=Albi\n' >> .env.x
 
 # 2. first deploy on prod7 (node-id 12) → note the App ID it prints

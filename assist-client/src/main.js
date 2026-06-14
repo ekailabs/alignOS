@@ -32,7 +32,7 @@ ipcMain.handle('health', async () => mc.health());
 ipcMain.handle('setup', async (_e, { url, token }) => {
   const clean = String(url).replace(/\/$/, '');
   cfg.save({ url: clean });
-  if (token) await require('./identity').claim(clean, token);
+  await require('./identity').claim(clean, token || '');
   return { ok: true };
 });
 ipcMain.handle('seed', async () => {

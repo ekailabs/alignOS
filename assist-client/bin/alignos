@@ -40,21 +40,16 @@ async function main() {
   switch (cmd) {
     case 'setup': {
       const url = (flag('--url') || (argv[1] && !argv[1].startsWith('--') ? argv[1] : '')).replace(/\/$/, '');
-      const token = flag('--token');
-      if (!url) throw new Error('usage: alignos setup --url <gateway> --token <token>');
+      if (!url) throw new Error('usage: alignos setup --url <gateway>');
       cfg.save({ url });
-      if (token) {
-        await require('../src/identity').claim(url, token);
-        console.log('claimed ownership of', url);
-        process.stderr.write(`seeding your assistant from your agent logs (${hasFlag('--all') ? 'all history' : `${seedOpts().days} days`})…\n`);
-        try {
-          const { pairs, stats } = require('../src/agent-logs').ingestCorpus(seedOpts());
-          const r = await mc.uploadKnowledge(pairs);
-          console.log(`seeded ${r.count} prompt/output pairs from ${stats.sessions} sessions`);
-        } catch (e) { console.error('seed skipped:', e.message); }
-      } else {
-        console.log('connected to', url, '(no --token: owner routes stay unauthorized until claimed)');
-      }
+      await require('../src/identity').claim(url, '');
+      console.log('claimed ownership of', url);
+      process.stderr.write(`seeding your assistant from your agent logs (${hasFlag('--all') ? 'all history' : `${seedOpts().days} days`})…\n`);
+      try {
+        const { pairs, stats } = require('../src/agent-logs').ingestCorpus(seedOpts());
+        const r = await mc.uploadKnowledge(pairs);
+        console.log(`seeded ${r.count} prompt/output pairs from ${stats.sessions} sessions`);
+      } catch (e) { console.error('seed skipped:', e.message); }
       break;
     }
     case 'seed': {
@@ -64,7 +59,7 @@ async function main() {
       break;
     }
     case 'status':
-      console.log('private space:', cfg.load().url || '(not set — run: alignos setup --url <gateway> --token <token>)');
+      console.log('private space:', cfg.load().url || '(not set — run: alignos setup --url <gateway>)');
       break;
     case 'inbox': {
       const tasks = await mc.inbox();

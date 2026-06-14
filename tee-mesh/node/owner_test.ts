@@ -38,8 +38,7 @@ Deno.test("owner envelope gates owner-only routes", async () => {
     throw new Error("unclaimed node must reject owner routes");
   }
 
-  const token = owner.ownerState().token;
-  const claimed = owner.claim(token, b64url(ed25519.getPublicKey(ownerPriv)));
+  const claimed = owner.claim("", b64url(ed25519.getPublicKey(ownerPriv)));
   if (!claimed.ok) throw new Error(`claim failed: ${claimed.error}`);
 
   if (owner.verifyOwner("POST", path, body, new Headers())) {
@@ -56,5 +55,33 @@ Deno.test("owner envelope gates owner-only routes", async () => {
   }
   if (owner.verifyOwner("POST", path, body, headersFor(ownerPriv, path, body, "nonce-ok"))) {
     throw new Error("nonce replay must be rejected");
+  }
+});
+
+Deno.test("first claim wins and cannot be rebound", async () => {
+  const dir = await Deno.makeTempDir();
+  Deno.env.set("ALIGN_OWNER_STATE", `${dir}/owner.json`);
+  const owner = await import(`./owner.ts?test=${crypto.randomUUID()}`);
+
+  const path = "/owner/knowledge";
+  const body = JSON.stringify({ pairs: [{ prompt: "hello", output: "world" }] });
+  const firstPriv = ed25519.utils.randomPrivateKey();
+  const secondPriv = ed25519.utils.randomPrivateKey();
+
+  const first = owner.claim("", b64url(ed25519.getPublicKey(firstPriv)));
+  if (!first.ok) throw new Error(`first claim failed: ${first.error}`);
+  if (!owner.verifyOwner("POST", path, body, headersFor(firstPriv, path, body, "nonce-first"))) {
+    throw new Error("first claimed key should be accepted");
+  }
+
+  const second = owner.claim("", b64url(ed25519.getPublicKey(secondPriv)));
+  if (second.ok || second.error !== "already claimed") {
+    throw new Error("second claim should be rejected once owner is bound");
+  }
+  if (!owner.verifyOwner("POST", path, body, headersFor(firstPriv, path, body, "nonce-still-first"))) {
+    throw new Error("first key should remain bound");
+  }
+  if (owner.verifyOwner("POST", path, body, headersFor(secondPriv, path, body, "nonce-second"))) {
+    throw new Error("second key should not be accepted");
   }
 });
