@@ -31,10 +31,10 @@ function partsText(parts) {
   return (parts || []).filter((p) => p && p.kind === 'text').map((p) => p.text).join('\n');
 }
 
-function buildPrompt(task) {
+function buildPrompt(task, { instruction, currentDraft } = {}) {
   const who = (task.from && task.from.display) || 'someone';
   const ask = partsText(task.history && task.history[0] && task.history[0].parts);
-  return [
+  const lines = [
     `You are drafting a reply the owner of this workspace will send to ${who}.`,
     `Use this workspace's files for grounding when relevant, but do not modify anything (read-only).`,
     ``,
@@ -43,9 +43,32 @@ function buildPrompt(task) {
     ask,
     `"""`,
     ``,
+  ];
+  if (currentDraft) {
+    lines.push(
+      `Current draft:`,
+      `"""`,
+      currentDraft,
+      `"""`,
+      ``,
+    );
+  }
+  if (instruction) {
+    lines.push(
+      `Owner follow-up question or instruction:`,
+      `"""`,
+      instruction,
+      `"""`,
+      ``,
+      `Revise the reply using this follow-up. If the owner asked a question, answer it in the reply when useful.`,
+      ``,
+    );
+  }
+  lines.push(
     `Output ONLY the message body to send, in the owner's voice, as plain text.`,
     `Do not explain your reasoning, describe the workspace, or add any preamble, sign-off, or markdown.`,
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 // Read-only flags only — the prompt is delivered on stdin (below), NOT as an argv element.
@@ -56,7 +79,7 @@ function flagsFor(kind, agent) {
   return agent.codexArgs || ['exec', '--sandbox', 'read-only', '--skip-git-repo-check'];
 }
 
-function runDraft(task, { workspace, agent = cfg.agentConfig(), timeoutMs } = {}) {
+function runDraft(task, { workspace, agent = cfg.agentConfig(), timeoutMs, instruction, currentDraft } = {}) {
   return new Promise((resolve, reject) => {
     const cli = detectCli(agent);
     if (!cli) return reject(new Error('No local agent CLI found — install Claude Code (`claude`) or Codex (`codex`).'));
@@ -64,7 +87,7 @@ function runDraft(task, { workspace, agent = cfg.agentConfig(), timeoutMs } = {}
     // No shell — args are read-only flags only; the prompt goes on stdin (no injection surface).
     const child = spawn(cli.cmd, args, { cwd: workspace || process.cwd(), env: process.env });
     child.stdin.on('error', () => {}); // ignore EPIPE if the CLI closes stdin early
-    child.stdin.write(buildPrompt(task));
+    child.stdin.write(buildPrompt(task, { instruction, currentDraft }));
     child.stdin.end();
     const limit = timeoutMs || agent.timeoutMs || 120000;
     let out = '', err = '', done = false;

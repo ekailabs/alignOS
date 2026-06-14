@@ -29,14 +29,16 @@ function needsDraft(taskId) {
 }
 
 // Draft one task now. Used by the loop, the redraft IPC handler, and the CLI.
-async function draftTask(task, { onUpdate, runDraft = runner.runDraft } = {}) {
+async function draftTask(task, { onUpdate, runDraft = runner.runDraft, instruction } = {}) {
   const agent = cfg.agentConfig();
   const workspace = workspaceFor();
-  store.set(task.id, { status: 'drafting', workspace, text: '', error: '' });
+  const previous = store.get(task.id);
+  const currentDraft = previous && previous.status === 'ready' ? previous.text : '';
+  store.set(task.id, { status: 'drafting', workspace, text: '', error: '', instruction: instruction || '' });
   if (onUpdate) onUpdate(task.id);
   try {
-    const { text, cli } = await runDraft(task, { workspace, agent });
-    store.set(task.id, { status: 'ready', text, cli, error: '' });
+    const { text, cli } = await runDraft(task, { workspace, agent, instruction, currentDraft });
+    store.set(task.id, { status: 'ready', text, cli, error: '', instruction: instruction || '' });
   } catch (e) {
     store.set(task.id, { status: 'error', error: e.message });
   }

@@ -39,6 +39,14 @@ const task = {
   assert.ok(delivered.includes('Are you free Thursday?'), 'question reached the CLI');
   assert.ok(delivered.includes("Devon's assistant"), 'asker reached the CLI');
 
+  const revisionPrompt = runner.buildPrompt(task, {
+    currentDraft: 'Thursday at 2pm works for me.',
+    instruction: 'Can you make it warmer?',
+  });
+  assert.ok(revisionPrompt.includes('Current draft:'), 'revision prompt includes current draft section');
+  assert.ok(revisionPrompt.includes('Thursday at 2pm works for me.'), 'revision prompt includes current draft');
+  assert.ok(revisionPrompt.includes('Can you make it warmer?'), 'revision prompt includes follow-up');
+
   // nonzero exit rejects with the exit code
   writeStub(`#!/bin/sh\necho boom 1>&2\nexit 3\n`);
   await assert.rejects(

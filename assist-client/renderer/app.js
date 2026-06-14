@@ -70,7 +70,20 @@ const MOCK = (() => {
         },
         capabilities: { modes: ['quick', 'deep'] },
       },
-      services: [],
+      services: [
+        { node_id: '0xa1b1', owner: { handle: 'albi', display_name: 'Albi', claimed: true },
+          gateway_url: 'https://albi-8080.dstack-pha-prod7.phala.network', mode: 'tee',
+          capabilities: { modes: ['quick', 'deep'] },
+          agents: [{ name: 'albi', description: 'GTM, PMF, and product development.', skills: [{ name: 'GTM' }, { name: 'PMF' }] }] },
+        { node_id: '0xand2', owner: { handle: 'andrew', display_name: 'Andrew', claimed: true },
+          gateway_url: 'https://andrew-8080.dstack-pha-prod7.phala.network', mode: 'tee',
+          capabilities: { modes: ['quick', 'deep'] },
+          agents: [{ name: 'andrew', description: 'Confidential compute, privacy, and security.', skills: [{ name: 'TEE' }, { name: 'Privacy' }] }] },
+      ],
+    }),
+    askProvider: async ({ question, owner }) => ({
+      status: { state: 'completed' },
+      artifacts: [{ parts: [{ kind: 'text', text: `(${owner}) Good question — “${question}”. Here’s how I’d think about it…` }] }],
     }),
     pickFolder: async () => '/Users/you/Documents/example',
     inbox: async () => tasks.filter((t) => ['input-required', 'auth-required'].includes(t.status.state)),
@@ -90,7 +103,11 @@ const MOCK = (() => {
       return mockDrafts[id];
     },
     onDraftUpdated: () => {},
-    followup: async (id) => tasks.find((t) => t.id === id),
+    followup: async (id, msg) => {
+      mockDrafts[id] = { status: 'ready', text: `Updated draft after follow-up: ${msg}`, cli: 'claude',
+        workspace: '/Users/you/Documents/win26/ekai/alignOS', at: new Date().toISOString() };
+      return tasks.find((t) => t.id === id);
+    },
     decline: async (id) => { const t = tasks.find((t) => t.id === id); t.status.state = 'canceled'; return t; },
   };
 })();
@@ -110,8 +127,8 @@ const ago = (when) => {
   return Math.floor(s / 86400) + 'd';
 };
 
-const SECTIONS = ['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded', 'folders', 'inbox', 'agent-cards', 'allclear', 'review', 'handled', 'prefs', 'error'];
-const OUTCOME = { completed: 'Sent', canceled: 'Declined', rejected: 'Declined' };
+const SECTIONS = ['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded', 'folders', 'inbox', 'agent-cards', 'ask', 'allclear', 'review', 'handled', 'prefs', 'error'];
+const OUTCOME = { completed: 'Sent', canceled: 'Rejected', rejected: 'Rejected' };
 const ONBOARDING = new Set(['loading', 'welcome', 'connect', 'consent', 'seeding', 'seeded']);
 let _view = null;
 function setView(v) {
@@ -140,6 +157,7 @@ const SEED_SOURCES = [
 ];
 
 let current = null;
+let _spaceUrl = ''; // the space (TEE) URL we're connected to — shown + editable in Preferences
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 2200); }
 function fail(msg) { $('error-text').textContent = msg || 'Unknown error'; setView('error'); }
 function setupErrorMessage(e) {
@@ -202,6 +220,7 @@ async function boot() {
   try {
     const b = await api.bootstrap();
     if (MOCKED) $('priv').textContent = 'Private · demo';
+    _spaceUrl = b.url || '';
     startHealthPolling();
     if (!b.connected) return setView('welcome');
     // Returning session: a restarted/re-keyed space could 401 the inbox. mesh-client auto-repairs
@@ -281,6 +300,7 @@ function openFromHash() {
   if (h === '#folders') return openFolders();
   if (h === '#cards') return loadAgentCards();
   if (h === '#handled') return loadHandled();
+  if (h === '#prefs') return openPrefs();
   const m = h.match(/^#open=(.+)/);
   if (m) openReview(decodeURIComponent(m[1]));
 }
@@ -312,6 +332,17 @@ async function loadInbox() {
   } catch (e) { fail(e.message); }
 }
 
+async function openPrefs() {
+  const i = $('prefs-url-input'); if (i) i.value = _spaceUrl || '';
+  $('prefs-conn').textContent = '';
+  setView('prefs');
+  const pc = $('profile-card');
+  if (pc) {
+    pc.innerHTML = '<div class="spinner small-spin"></div>';
+    try { const { node, service } = await api.agentCards(); pc.innerHTML = renderProfileCard(node, service); hydrateAvatars(pc); }
+    catch { pc.innerHTML = '<div class="prefs-note">Connect to a space to see your agent card.</div>'; }
+  }
+}
 async function loadHandled() {
   try {
     const tasks = await api.handled();
@@ -352,6 +383,35 @@ function endpointRows(endpoints) {
     .join('');
 }
 
+const hostOf = (url) => { try { return new URL(url).host; } catch { return String(url || '').replace(/^https?:\/\//, '').split('/')[0]; } };
+// An agent's description/expertise, sourced from its published agent card (carried on the TEE
+// service entry as `agents`). Falls back to skill names, then the capability summary.
+function agentDesc(service) {
+  const a = Array.isArray(service.agents) && service.agents[0];
+  if (a && a.description) return a.description;
+  const skills = a ? skillNames(a.skills) : [];
+  if (skills.length) return skills.join(', ');
+  return (service.capabilities && service.capabilities.quick) || '';
+}
+
+// Per-owner avatar images (keyed by handle). Falls back to the letter avatar when there's no
+// image or it fails to load. CSP-safe: we preload via Image() and only swap on success.
+const AVATARS = { shashank: 'assets/shashank.png', andrew: 'assets/andrew.png', albi: 'assets/albi.png' };
+const avatarSrc = (key) => AVATARS[String(key || '').toLowerCase()] || '';
+function avatarTag(name, handle) {
+  return `<span class="av" data-avatar="${esc(String(handle || name || '').toLowerCase())}">${esc(initial(name))}</span>`;
+}
+function hydrateAvatars(root) {
+  (root || document).querySelectorAll('.av[data-avatar]').forEach((el) => {
+    if (el.classList.contains('av-img')) return;
+    const src = avatarSrc(el.getAttribute('data-avatar'));
+    if (!src) return;
+    const img = new Image();
+    img.onload = () => { el.classList.add('av-img'); el.style.backgroundImage = `url("${src}")`; el.textContent = ''; };
+    img.src = src;
+  });
+}
+
 function renderAgentCard(agent) {
   const skills = skillNames(agent.skills);
   return `<li class="agent-card-item">
@@ -366,51 +426,107 @@ function renderAgentCard(agent) {
 
 function renderServiceCard(service) {
   const owner = service.owner || {};
+  const name = owner.display_name || owner.handle || service.app_id || 'Unknown agent';
   const modes = service.capabilities && Array.isArray(service.capabilities.modes) ? service.capabilities.modes : [];
-  return `<li class="agent-card-item">
+  const desc = agentDesc(service);
+  const handle = (owner.handle || name || '').toLowerCase();
+  return `<li class="agent-card-item" data-ask="${esc(handle)}" data-name="${esc(name)}">
     <div class="agent-card-top">
-      <span class="av">${esc(initial(owner.display_name || owner.handle || service.app_id))}</span>
-      <span class="agent-card-title"><b>${esc(owner.display_name || owner.handle || service.app_id || 'Unknown service')}</b><span>${esc(service.gateway_url || service.service_id || '')}</span></span>
+      ${avatarTag(name, owner.handle)}
+      <span class="agent-card-title"><b>${esc(name)}</b></span>
+      ${modes.length ? `<span class="modes-inline">${modes.map((m) => esc(m)).join(' · ')}</span>` : ''}
     </div>
-    ${modes.length ? `<div class="tag-row">${modes.map((m) => `<span class="tag">${esc(m)}</span>`).join('')}</div>` : ''}
-    <div class="endpoint-list">${endpointRows(service.endpoints)}</div>
+    <p class="agent-desc">${esc(desc || 'Assistant in this space’s mesh.')}</p>
+    <div class="agent-card-foot">
+      <code class="url-line" title="${esc(service.gateway_url || '')}">${esc(hostOf(service.gateway_url))}</code>
+      <button class="btn small primary card-ask" data-ask="${esc(handle)}" data-name="${esc(name)}">Ask ${esc(name)} →</button>
+    </div>
   </li>`;
+}
+
+// The owner's OWN node card — shown under Preferences › Profile, not in the Known Agents list.
+function renderProfileCard(node, service) {
+  const cardNode = node || {}; const svc = service || {}; const owner = cardNode.owner || svc.owner || {};
+  return `<div class="profile-head">${avatarTag(owner.display_name || owner.handle, owner.handle)}
+    <div><b>${esc(owner.display_name || owner.handle || 'Unclaimed')}</b><span class="profile-handle">@${esc(owner.handle || 'you')}</span></div></div>
+  <div class="node-main">
+    <div><span class="node-label">Owner</span><b>${esc(owner.display_name || owner.handle || 'Unclaimed')}</b></div>
+    <div><span class="node-label">Node</span><code title="${esc(cardNode.node_id || '')}">${esc(shortId(cardNode.node_id))}</code></div>
+    <div><span class="node-label">Gateway</span><code title="${esc(cardNode.gateway_url || '')}">${esc(hostOf(cardNode.gateway_url))}</code></div>
+    <div><span class="node-label">Mode</span><b>${esc(cardNode.mode || 'local')}</b></div>
+    <div><span class="node-label">Attestation</span><code title="${esc(cardNode.attestation_digest || '')}">${esc(cardNode.attestation_digest ? shortId(cardNode.attestation_digest) : 'local mode')}</code></div>
+    <div><span class="node-label">Updated</span><b>${esc(ago(cardNode.updated_at))}</b></div>
+  </div>`;
 }
 
 async function loadAgentCards() {
   try {
     setView('agent-cards');
-    $('node-card').innerHTML = '<div class="spinner small-spin"></div>';
-    $('cards-agent-list').innerHTML = '';
-    $('cards-service-list').innerHTML = '';
+    $('cards-service-list').innerHTML = '<li class="cards-loading"><div class="spinner small-spin"></div></li>';
     $('cards-empty').hidden = true;
 
-    const { node, service, services } = await api.agentCards();
+    const { node, services } = await api.agentCards();
     const cardNode = node || {};
-    const svc = service || {};
-    const owner = cardNode.owner || svc.owner || {};
-    $('cards-mode').textContent = cardNode.mode || 'unknown';
-    $('cards-mode').classList.toggle('tee', cardNode.mode === 'tee');
-    $('cards-sub').textContent = owner.display_name || owner.handle
-      ? `${owner.display_name || owner.handle}'s published agent identity and routing surface.`
-      : 'Published identity and routing details for this private space.';
+    const selfHandle = (cardNode.owner && cardNode.owner.handle || '').toLowerCase();
+    const selfId = cardNode.node_id;
 
-    $('node-card').innerHTML = `<div class="node-main">
-      <div><span class="node-label">Owner</span><b>${esc(owner.display_name || owner.handle || 'Unclaimed')}</b></div>
-      <div><span class="node-label">Node</span><code title="${esc(cardNode.node_id || '')}">${esc(shortId(cardNode.node_id))}</code></div>
-      <div><span class="node-label">Gateway</span><code title="${esc(cardNode.gateway_url || '')}">${esc(cardNode.gateway_url || '')}</code></div>
-      <div><span class="node-label">Version</span><b>${esc(cardNode.version == null ? '-' : cardNode.version)}</b></div>
-      <div><span class="node-label">Attestation</span><code title="${esc(cardNode.attestation_digest || '')}">${esc(cardNode.attestation_digest ? shortId(cardNode.attestation_digest) : 'local mode')}</code></div>
-      <div><span class="node-label">Updated</span><b>${esc(ago(cardNode.updated_at))}</b></div>
-    </div>
-    <div class="endpoint-list">${endpointRows(svc.endpoints)}</div>`;
-
-    const agents = Array.isArray(cardNode.agents) ? cardNode.agents : [];
-    $('cards-agent-list').innerHTML = agents.map(renderAgentCard).join('');
-    const knownServices = Array.isArray(services) && services.length ? services : (service ? [service] : []);
-    $('cards-service-list').innerHTML = knownServices.map(renderServiceCard).join('');
-    $('cards-empty').hidden = !!(agents.length || knownServices.length);
+    // Known Agents = everyone in this space's mesh EXCEPT the owner who's logged in.
+    const others = (Array.isArray(services) ? services : []).filter((s) => {
+      const h = (s.owner && s.owner.handle || '').toLowerCase();
+      if (selfId && s.node_id === selfId) return false;
+      if (selfHandle && h && h === selfHandle) return false;
+      return true;
+    });
+    $('cards-sub').textContent = others.length
+      ? 'Reach any of them directly — each replies in its owner’s voice.'
+      : 'No other assistants are reachable in this space yet.';
+    $('cards-service-list').innerHTML = others.map(renderServiceCard).join('');
+    hydrateAvatars($('cards-service-list'));
+    $('cards-empty').hidden = others.length > 0;
   } catch (e) { fail(e.message); }
+}
+
+// Ask a Known Agent a question (A2A quick mode → answered in that owner's voice via their TEE).
+let _askTarget = null;
+function taskReplyText(res) {
+  if (!res) return '';
+  if (typeof res === 'string') return res;
+  const fromArtifacts = res.artifacts && res.artifacts[0] && text(res.artifacts[0].parts);
+  if (fromArtifacts) return fromArtifacts;
+  const msg = res.status && res.status.message;
+  if (msg && msg.parts) return text(msg.parts);
+  if (res.reply || res.answer) return res.reply || res.answer;
+  return '';
+}
+function openAsk(handle, name, desc) {
+  _askTarget = { handle, name: name || handle };
+  $('ask-who').textContent = _askTarget.name;
+  $('ask-desc').textContent = desc || '';
+  $('ask-desc').hidden = !desc;
+  $('ask-text').value = '';
+  $('ask-reply').hidden = true; $('ask-reply-lbl').hidden = true; $('ask-prov').hidden = true;
+  setView('ask');
+  $('ask-text').focus();
+}
+async function sendAsk() {
+  const q = $('ask-text').value.trim();
+  if (!q || !_askTarget) return;
+  const btn = $('ask-send');
+  btn.disabled = true; btn.textContent = 'Asking…';
+  try {
+    const res = await api.askProvider({ question: q, mode: 'quick', owner: _askTarget.handle });
+    const reply = taskReplyText(res);
+    $('ask-reply').textContent = reply || `Sent to ${_askTarget.name}. Their assistant is drafting a reply — check back shortly.`;
+    $('ask-reply').classList.toggle('ask-reply-empty', !reply);
+    $('ask-reply').hidden = false; $('ask-reply-lbl').hidden = false;
+    $('ask-prov').textContent = `Answered by ${_askTarget.name}’s assistant in quick mode, inside their private space.`;
+    $('ask-prov').hidden = false;
+  } catch (e) {
+    $('ask-reply').textContent = `Couldn’t reach ${_askTarget.name}: ${(e && e.message) || e}`;
+    $('ask-reply').classList.add('ask-reply-empty');
+    $('ask-reply').hidden = false; $('ask-reply-lbl').hidden = false;
+  }
+  btn.disabled = false; btn.textContent = 'Ask →';
 }
 
 // Show the draft for a non-terminal task: prefer the local overlay draft (editable when ready);
@@ -469,9 +585,9 @@ async function openReview(id) {
       $('rv-draft-edit').hidden = true; $('rv-draft').hidden = false; $('rv-draft-actions').hidden = true;
       const sent = t.status.state === 'completed';
       $('rv-lbl').textContent = 'Drafted reply';
-      $('rv-draft').textContent = sent ? (text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts) || '(no reply)') : '(declined — nothing was sent)';
+      $('rv-draft').textContent = sent ? (text(t.artifacts && t.artifacts[0] && t.artifacts[0].parts) || '(no reply)') : '(rejected — nothing was sent)';
       $('rv-prov').textContent = '';
-      $('rv-consequence').innerHTML = `<b>${sent ? 'Sent ✓' : 'Declined'}</b> · ${esc(ago(t.status.timestamp))}`;
+      $('rv-consequence').innerHTML = `<b>${sent ? 'Sent ✓' : 'Rejected'}</b> · ${esc(ago(t.status.timestamp))}`;
     } else {
       const d = api.draftGet ? await api.draftGet(id).catch(() => null) : null;
       renderDraft(t, d, who);
@@ -487,7 +603,7 @@ function wire() {
   $('connect-go').addEventListener('click', async () => {
     const url = normalizeBackendUrl($('connect-url').value);
     if (!url) { $('connect-err').textContent = 'Enter a valid space address.'; $('connect-err').hidden = false; return; }
-    try { await api.setup({ url }); $('connect-err').hidden = true; setView('consent'); }
+    try { await api.setup({ url }); _spaceUrl = url; $('connect-err').hidden = true; setView('consent'); }
     catch (e) { $('connect-err').textContent = setupErrorMessage(e); $('connect-err').hidden = false; }
   });
   $('consent-approve').addEventListener('click', seedAndEnter);
@@ -497,10 +613,29 @@ function wire() {
   $('open-inbox').addEventListener('click', loadInbox);
   $('open-cards').addEventListener('click', loadAgentCards);
   $('cards-back').addEventListener('click', loadInbox);
+  $('cards-service-list').addEventListener('click', (e) => {
+    const item = e.target.closest('[data-ask]'); if (!item) return;
+    const desc = (item.closest('.agent-card-item') || item).querySelector('.agent-desc');
+    openAsk(item.getAttribute('data-ask'), item.getAttribute('data-name'), desc ? desc.textContent : '');
+  });
+  $('ask-back').addEventListener('click', loadAgentCards);
+  $('ask-send').addEventListener('click', sendAsk);
   $('open-handled').addEventListener('click', loadHandled);
   $('allclear-handled').addEventListener('click', loadHandled);
   $('handled-back').addEventListener('click', loadInbox);
-  $('open-prefs').addEventListener('click', () => setView('prefs'));
+  $('open-prefs').addEventListener('click', openPrefs);
+  $('prefs-reconnect').addEventListener('click', async () => {
+    const url = normalizeBackendUrl($('prefs-url-input').value);
+    if (!url) { $('prefs-conn').textContent = 'Enter a valid address.'; return; }
+    $('prefs-conn').textContent = 'Connecting…';
+    try {
+      await api.setup({ url });          // saves cfg + claims the new space
+      _spaceUrl = url;
+      await refreshHealth();             // re-poll the new space's liveness
+      toast(`Connected to ${url}`);
+      loadInbox();                       // inbox + Agent Cards now come from this space
+    } catch (e) { $('prefs-conn').textContent = setupErrorMessage(e); }
+  });
   $('prefs-folders').addEventListener('click', openFolders);
   $('prefs-back').addEventListener('click', loadInbox);
   $('rv-back').addEventListener('click', loadInbox);
@@ -539,7 +674,7 @@ function wire() {
     if (_view === 'review' && current && current.id === taskId) openReview(taskId);
     else if (_view === 'inbox') loadInbox();
   });
-  $('rv-decline').addEventListener('click', async () => { try { await api.decline(current.id); toast('Declined.'); loadInbox(); } catch (e) { fail(e.message); } });
+  $('rv-decline').addEventListener('click', async () => { try { await api.decline(current.id); toast('Rejected.'); loadInbox(); } catch (e) { fail(e.message); } });
   $('rv-followup').addEventListener('click', () => {
     const c = $('rv-compose'); c.hidden = !c.hidden;
     $('rv-followup').classList.toggle('on', !c.hidden);
@@ -547,7 +682,7 @@ function wire() {
   });
   $('rv-compose-send').addEventListener('click', async () => {
     const msg = $('rv-compose-text').value.trim(); if (!msg) return;
-    try { await api.followup(current.id, msg); toast('Sent to your assistant.'); openReview(current.id); }
+    try { await api.followup(current.id, msg); toast('Follow-up sent.'); openReview(current.id); }
     catch (e) { fail(e.message); }
   });
 }

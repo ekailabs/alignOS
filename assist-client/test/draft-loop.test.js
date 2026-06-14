@@ -33,6 +33,19 @@ const onUpdate = (id) => updates.push(id);
   assert.strictEqual(r.drafted, 0);
   assert.strictEqual(calls, 0);
 
+  // follow-up revision: pass the existing draft and instruction through to the runner
+  let seenOpts = null;
+  await loop.draftTask(tasks[0], {
+    instruction: 'Make it warmer.',
+    runDraft: async (_t, opts) => {
+      seenOpts = opts;
+      return { text: 'warmer reply', cli: 'claude' };
+    },
+  });
+  assert.strictEqual(seenOpts.instruction, 'Make it warmer.');
+  assert.strictEqual(seenOpts.currentDraft, 'reply-a');
+  assert.strictEqual(store.get('a').text, 'warmer reply');
+
   // error path: stored as error and retried on the next sweep
   store.remove('a'); store.remove('b');
   const badDraft = async () => { throw new Error('cli blew up'); };

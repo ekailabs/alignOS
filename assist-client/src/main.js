@@ -30,7 +30,7 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
-  win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'), { hash: process.env.ALIGN_VIEW || '' });
   startDraftLoop();
 }
 
@@ -146,5 +146,16 @@ ipcMain.handle('approve', async (_e, { id, text }) => {
   drafts.remove(id);
   return t;
 });
-ipcMain.handle('followup', async (_e, { id, msg }) => { const t = await mc.followup(id, msg); store.record({ taskId: id, verdict: 'followup', instruction: msg }); return t; });
+ipcMain.handle('followup', async (_e, { id, msg }) => {
+  const d = drafts.get(id);
+  if (d) {
+    const t = await mc.getTask(id);
+    const next = await draftLoop.draftTask(t, { onUpdate: notifyDraft, instruction: msg });
+    store.record({ taskId: id, verdict: 'followup', instruction: msg });
+    return { ...t, localDraft: next };
+  }
+  const t = await mc.followup(id, msg);
+  store.record({ taskId: id, verdict: 'followup', instruction: msg });
+  return t;
+});
 ipcMain.handle('decline', async (_e, { id, note }) => { const t = await mc.decline(id, note); store.record({ taskId: id, verdict: 'decline', note }); return t; });

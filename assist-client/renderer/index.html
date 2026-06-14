@@ -17,7 +17,7 @@
         <span class="conn off" id="conn" title="Connection to your private space"><i class="cdot"></i><span id="conn-label">…</span></span>
         <span class="pill" id="priv">Private</span>
         <button class="link" id="open-inbox">Inbox</button>
-        <button class="link" id="open-cards">Agent Cards</button>
+        <button class="link" id="open-cards">Known Agents</button>
         <button class="link" id="open-handled">History</button>
         <button class="link" id="open-prefs">Preferences</button>
       </span>
@@ -124,22 +124,30 @@
       <ul class="list" id="inbox-list"></ul>
     </section>
 
-    <!-- AGENT CARDS -->
+    <!-- KNOWN AGENTS -->
     <section class="card agent-cards" id="agent-cards" hidden>
       <button class="link back" id="cards-back">← Inbox</button>
       <div class="cards-head">
-        <div>
-          <h1 class="ihead">Agent Cards</h1>
-          <p class="isub" id="cards-sub">Published identity and routing details for this private space.</p>
-        </div>
-        <span class="mode-badge" id="cards-mode">—</span>
+        <h1 class="ihead">Known Agents</h1>
+        <p class="isub" id="cards-sub">Assistants you can reach in this space.</p>
       </div>
-      <div class="node-card" id="node-card"></div>
-      <div class="sec">Local agents</div>
-      <ul class="card-list" id="cards-agent-list"></ul>
-      <div class="sec">Known services</div>
       <ul class="card-list" id="cards-service-list"></ul>
-      <p class="sub" id="cards-empty" hidden>No agent cards are published yet.</p>
+      <p class="sub" id="cards-empty" hidden>No other assistants are reachable in this space yet.</p>
+    </section>
+
+    <!-- ASK A KNOWN AGENT -->
+    <section class="card review" id="ask" hidden>
+      <button class="link back" id="ask-back">← Known Agents</button>
+      <div class="rv-from">Ask <b id="ask-who">—</b> <span class="chip" id="ask-mode">quick mode</span></div>
+      <div class="agent-desc" id="ask-desc" hidden></div>
+      <div class="compose" id="ask-compose">
+        <div class="ch">Your question</div>
+        <textarea id="ask-text" rows="3" placeholder="Ask a question — it’s answered in their owner’s voice…"></textarea>
+        <div class="crow"><button class="btn small primary" id="ask-send">Ask →</button></div>
+      </div>
+      <div class="lbl" id="ask-reply-lbl" hidden>Reply</div>
+      <div class="draft" id="ask-reply" hidden></div>
+      <div class="prov" id="ask-prov" hidden></div>
     </section>
 
     <!-- ALL CLEAR -->
@@ -165,14 +173,17 @@
       <div class="prov" id="rv-prov"></div>
 
       <div class="compose" id="rv-compose" hidden>
-        <div class="ch">Follow up — ask your assistant to adjust</div>
-        <textarea id="rv-compose-text" rows="2" placeholder="e.g. keep it to two sentences…"></textarea>
-        <div class="crow"><button class="btn small primary" id="rv-compose-send">Send to assistant →</button></div>
+        <div class="ch">Follow-up question or change</div>
+        <textarea id="rv-compose-text" rows="2" placeholder="Ask a question or request a change to this draft…"></textarea>
+        <div class="crow">
+          <button class="btn small icon mic" id="rv-compose-mic" type="button" disabled title="Voice follow-up coming soon" aria-label="Voice follow-up coming soon">&#127908;</button>
+          <button class="btn small primary" id="rv-compose-send">Send follow-up →</button>
+        </div>
       </div>
 
       <div class="consequence" id="rv-consequence"></div>
       <div class="actions" id="rv-actions">
-        <button class="btn ghost" id="rv-decline">Decline</button>
+        <button class="btn ghost" id="rv-decline">Reject</button>
         <button class="btn outline" id="rv-followup">Follow up</button>
         <button class="btn primary" id="rv-approve">Approve &amp; send</button>
       </div>
@@ -191,7 +202,20 @@
     <section class="card prefs" id="prefs" hidden>
       <button class="link back" id="prefs-back">← Inbox</button>
       <h1 class="ihead">Preferences</h1>
-      <div class="sec">Connections — who can reach your assistant</div>
+      <div class="sec">Your agent card</div>
+      <p class="prefs-note">This is your own published identity in this space. Other owners see this;
+        you see them under Known Agents.</p>
+      <div class="node-card" id="profile-card" style="margin-top:10px"></div>
+      <div class="sec">Your private space</div>
+      <div class="prefs-note">Your inbox and Known Agents come from this space. Point to another
+        address, like a remote space, anytime.</div>
+      <label class="field prefs-field"><span>Space address</span>
+        <input id="prefs-url-input" autocomplete="off" spellcheck="false" placeholder="https://your-space.example" /></label>
+      <div class="prefs-row">
+        <button class="btn small primary" id="prefs-reconnect">Reconnect →</button>
+        <span class="prefs-conn" id="prefs-conn"></span>
+      </div>
+      <div class="sec">Who can reach your assistant</div>
       <div class="prefs-note">Anyone new defaults to <b>always ask me</b>. Per-connection rules
         and the auto-handle allow-list are wired in the next slice.</div>
       <div class="sec">What your assistant knows</div>
