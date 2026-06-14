@@ -213,6 +213,33 @@ function stripCode(s) {
     .trim();
 }
 
+// Ordered user prompts within one session — the owner's refinement moves (redacted, capped).
+function userPromptChain(msgs, { maxLen = 280, maxTurns = 8 } = {}) {
+  const out = [];
+  for (const m of msgs) {
+    if (m.role !== 'user') continue;
+    const t = stripCode(String(m.text || '')).replace(/\s+/g, ' ').trim();
+    if (t.length < 8) continue;
+    out.push(redact(t).masked.slice(0, maxLen));
+    if (out.length >= maxTurns) break;
+  }
+  return out;
+}
+
+// Build redacted prompt chains across recent sessions — the corpus that teaches the loop how
+// the owner iterates. Mirrors ingestCorpus(); chains with <2 turns are skipped.
+function ingestStyle({ days = 7, maxChains = 60, maxLen = 280, maxTurns = 8 } = {}) {
+  const files = recentFiles(days);
+  const chains = [];
+  for (const f of files) {
+    if (chains.length >= maxChains) break;
+    const msgs = readSession(f.file, f.source);
+    const chain = userPromptChain(msgs, { maxLen, maxTurns });
+    if (chain.length >= 2) chains.push(chain);
+  }
+  return { chains };
+}
+
 // Moment 1: distill recent sessions into redacted { prompt -> final NL output } pairs —
 // the corpus that teaches the agent how the owner prompts/communicates. Tool output, code,
 // and snippets are removed; secrets redacted. Default is the last 7 days; pass days=null
@@ -232,6 +259,7 @@ function ingestCorpus({ days = 7, maxPairs = 2000, maxLen = 700, project = null 
 
   const pairs = [];
   const bySource = {};
+  const convoSet = new Set(); // distinct conversations that contributed ≥1 redacted example
   for (const f of files) {
     if (pairs.length >= maxPairs) break;
     const label = f.project.replace(/^-Users-[^-]+-/, '').replace(/-/g, '/');
@@ -253,10 +281,31 @@ function ingestCorpus({ days = 7, maxPairs = 2000, maxLen = 700, project = null 
         output: redact(output).masked.slice(0, maxLen),
       });
       bySource[f.source] = (bySource[f.source] || 0) + 1;
+      convoSet.add(f.file);
       if (pairs.length >= maxPairs) break;
     }
   }
-  return { pairs, stats: { pairs: pairs.length, sessions: files.length, bySource, days } };
+  return { pairs, stats: { pairs: pairs.length, convos: convoSet.size, sessions: files.length, bySource, days } };
 }
 
-module.exports = { LOG_SOURCES, digest, recentFiles, readSession, sessionCwd, suggestFolders, ingestCorpus };
+// Light expertise read: tally domain keywords across the redacted corpus and project labels,
+// pick the strongest of our three agent-card domains (Albi / Andrew / Shashank). Used only to
+// greet the owner ("expert in X") — never uploaded, never a gate. A per-URL override
+// (personas.json) pins this deterministically for the demo.
+const EXPERTISE = [
+  { domain: 'GTM, PMF, and product development', kw: /\b(gtm|go-?to-?market|pmf|product-?market fit|positioning|launch|growth|startup|customers|product development)\b/ },
+  { domain: 'confidential compute, privacy, and security', kw: /\b(confidential comput\w*|tee|enclave|privacy|security|attestation|dstack|phala|kms|trusted execution)\b/ },
+  { domain: 'system design and agent infrastructure', kw: /\b(system design|distributed systems?|agent infra\w*|orchestration|routing|scalability|architecture|infrastructure)\b/ },
+];
+function inferExpertise(pairs) {
+  const text = pairs.map((p) => `${p.project} ${p.prompt}`).join(' \n ').toLowerCase();
+  let best = EXPERTISE[0], bestN = 0;
+  for (const e of EXPERTISE) {
+    const m = text.match(new RegExp(e.kw.source, 'g'));
+    const n = m ? m.length : 0;
+    if (n > bestN) { bestN = n; best = e; }
+  }
+  return { domain: best.domain, signal: bestN };
+}
+
+module.exports = { LOG_SOURCES, digest, recentFiles, readSession, sessionCwd, suggestFolders, ingestCorpus, inferExpertise, userPromptChain, ingestStyle };
