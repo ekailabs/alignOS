@@ -26,7 +26,7 @@ function agentConfig() {
     timeoutMs: 120000,
     concurrency: 1,
     autoDraft: true,
-    claudeArgs: null,     // override flags (prompt is always appended last)
+    claudeArgs: null,     // override read-only flags (the prompt is delivered on stdin)
     codexArgs: null,
     ...(load().agent || {}),
   };

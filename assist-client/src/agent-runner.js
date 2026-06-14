@@ -46,21 +46,24 @@ function buildPrompt(task) {
   ].join('\n');
 }
 
-// Flags first, prompt always last.
-function argvFor(kind, prompt, agent) {
-  const flags = kind === 'claude'
-    ? (agent.claudeArgs || ['-p', '--disallowedTools', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
-    : (agent.codexArgs || ['exec', '--sandbox', 'read-only']);
-  return flags.concat(prompt);
+// Read-only flags only — the prompt is delivered on stdin (below), NOT as an argv element.
+// claude's `--disallowedTools` is variadic and would otherwise swallow a trailing prompt as
+// tool names; stdin sidesteps all arg-ordering ambiguity for both CLIs.
+function flagsFor(kind, agent) {
+  if (kind === 'claude') return agent.claudeArgs || ['-p', '--disallowedTools', 'Edit', 'Write', 'NotebookEdit'];
+  return agent.codexArgs || ['exec', '--sandbox', 'read-only', '--skip-git-repo-check'];
 }
 
 function runDraft(task, { workspace, agent = cfg.agentConfig(), timeoutMs } = {}) {
   return new Promise((resolve, reject) => {
     const cli = detectCli(agent);
     if (!cli) return reject(new Error('No local agent CLI found — install Claude Code (`claude`) or Codex (`codex`).'));
-    const args = argvFor(cli.kind, buildPrompt(task), agent);
-    // No shell — prompt is a single argv element, so no shell-injection surface.
+    const args = flagsFor(cli.kind, agent);
+    // No shell — args are read-only flags only; the prompt goes on stdin (no injection surface).
     const child = spawn(cli.cmd, args, { cwd: workspace || process.cwd(), env: process.env });
+    child.stdin.on('error', () => {}); // ignore EPIPE if the CLI closes stdin early
+    child.stdin.write(buildPrompt(task));
+    child.stdin.end();
     const limit = timeoutMs || agent.timeoutMs || 120000;
     let out = '', err = '', done = false;
     const finish = (fn, arg) => { if (done) return; done = true; clearTimeout(timer); fn(arg); };
@@ -80,4 +83,4 @@ function runDraft(task, { workspace, agent = cfg.agentConfig(), timeoutMs } = {}
   });
 }
 
-module.exports = { detectCli, buildPrompt, argvFor, runDraft };
+module.exports = { detectCli, buildPrompt, flagsFor, runDraft };

@@ -12,10 +12,10 @@ function writeStub(body) {
   fs.writeFileSync(path.join(bin, 'claude'), body);
   fs.chmodSync(path.join(bin, 'claude'), 0o755);
 }
-// fake `claude`: record the argv it received, echo a canned reply.
+// fake `claude`: record the prompt it received on stdin, echo a canned reply.
 writeStub(`#!/usr/bin/env node
 const fs = require('fs');
-fs.writeFileSync(${JSON.stringify(log)}, process.argv.slice(2).join('\\n'));
+fs.writeFileSync(${JSON.stringify(log)}, fs.readFileSync(0, 'utf8'));
 process.stdout.write('Thursday at 2pm works for me.');
 `);
 process.env.PATH = bin + path.delimiter + process.env.PATH;
@@ -35,7 +35,7 @@ const task = {
   const r = await runner.runDraft(task, { workspace: bin, agent: { cli: 'auto' } });
   assert.strictEqual(r.text, 'Thursday at 2pm works for me.');
   assert.strictEqual(r.cli, 'claude');
-  const delivered = fs.readFileSync(log, 'utf8');
+  const delivered = fs.readFileSync(log, 'utf8'); // the prompt the CLI got on stdin
   assert.ok(delivered.includes('Are you free Thursday?'), 'question reached the CLI');
   assert.ok(delivered.includes("Devon's assistant"), 'asker reached the CLI');
 
