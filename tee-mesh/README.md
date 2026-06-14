@@ -1,4 +1,10 @@
-# alignOS
+# tee-mesh — the AlignOS TEE node (`assist-remote`)
+
+> **New here?** Start with the [project README](../README.md) and
+> [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) for the whole system, or
+> [docs/QUICKSTART.md](../docs/QUICKSTART.md) to run it. This file is the **node-component
+> reference**: the HTTP surface, local run, chains, and Phala deploy. Operator runbook:
+> [DEPLOY.md](DEPLOY.md).
 
 A mesh of dstack TEE CVMs. Each node hosts isolated agent containers **and** meshes with
 the other nodes, so every CVM is aware of every other CVM and the agents it runs —
@@ -56,6 +62,11 @@ A 3-node mesh is running on `dstack-pha-prod7`, registry on Ethereum Sepolia
 - Andrew (Confidential Compute, Privacy, Security): `https://29736dcf7742550956c28a1174c1e0724b6d769c-8080.dstack-pha-prod7.phala.network`
 - Shashank (System Design, Agent Infra): `https://29b4c80372a66a7086d9c953b4c9902c7071b701-8080.dstack-pha-prod7.phala.network`
 
+All three live demo nodes are deployed on the Codex-backed node image
+(`ghcr.io/sm86/alignos-node:codex1`) with Quick Mode loop enabled. The node materializes
+Codex auth at boot from `CODEX_AUTH_JSON_B64` into the `/data` volume; do not commit that
+env value.
+
 **Demo dashboard**: open `<any node>/dashboard` — shows every node, its isolated agents/skills,
 liveness + `mode=tee`, and a live "ask the mesh" box. Routing fans across CVMs: ask
 `how should we find PMF?` / `how does remote attestation work in a TEE?` /
@@ -64,7 +75,7 @@ liveness + `mode=tee`, and a live "ask the mesh" box. Routing fans across CVMs: 
 assistant services. For the demo instantiation, the three services are Albi, Andrew, and
 Shashank. Each service advertises `/ask-albi`, `/ask-andrew`, or `/ask-shashank` with a
 `mode=quick|deep` parameter. Quick Mode runs through the TEE; Deep Mode buffers a durable
-task in the owner's TEE until the local `assist-client` can run it.
+task in the owner's TEE until the local `assist-local` can run it.
 
 ## Run the local 3-node mesh (anvil, no docker/TEE)
 ```bash
@@ -84,6 +95,9 @@ Images are pulled from ghcr (`ghcr.io/sm86/alignos-{node,skill}`); the manifest 
 passed inline via `ALIGN_MANIFEST_JSON` (no host bind-mounts on the CVM).
 1. `PRIVATE_KEY=0x… bash scripts/deploy-registry.sh` → record `REGISTRY_CONTRACT`.
 2. Per CVM: an env file with `REGISTRY_*`/`PRIVATE_KEY` + a distinct `ALIGN_MANIFEST_JSON`.
-   `npx phala deploy -c deploy/docker-compose.phala.yaml -e <env>`, then set `ALIGN_SELF_URL`
-   to the issued gateway URL and upgrade in place (`phala deploy --cvm-id`; restart).
+   Use `deploy/docker-compose.phala.skill.yaml` for the generic skill runtime, or the
+   Codex-backed per-owner compose files (`docker-compose.phala.albi.yaml`,
+   `docker-compose.phala.andrew.yaml`, `docker-compose.phala.shashank.yaml`) for live
+   Quick Mode. Then set `ALIGN_SELF_URL` to the issued gateway URL and upgrade in place
+   (`phala deploy --cvm-id`; restart).
 3. `curl https://<app_id>-8080.dstack-pha-prod7.phala.network/peers` on each → full mesh.

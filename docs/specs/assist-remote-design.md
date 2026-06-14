@@ -1,9 +1,16 @@
-# alignOS Assist — assist-client / assist-remote design
+# alignOS Assist — assist-local / assist-remote design
 
 **Date:** 2026-06-13
 **Status:** Design draft — approved for implementation planning. Open implementation risks tracked in §16.
-**Repo area:** new `assist-client/` (Node/Electron) + additions to `tee-mesh/node/` for `assist-remote` (Deno)
-**Vocabulary:** see [docs/taxonomy.md](../../taxonomy.md). User-facing copy hides all implementation names.
+**Repo area:** new `assist-local/` (Node/Electron) + additions to `tee-mesh/node/` for `assist-remote` (Deno)
+**Vocabulary:** see [docs/taxonomy.md](../taxonomy.md). User-facing copy hides all implementation names.
+
+> **What this enables — product impact.** This is the foundational design of the whole product
+> surface: a calm desktop app + CLI ("your assistant") backed by an always-on TEE runtime ("your
+> private space"). It defines the **Inbox**, the **Approve · Follow up · Decline** loop,
+> **Preferences**, onboarding, and how a peer's assistant can ask yours for help over A2A —
+> without your raw data ever leaving your control. **Status:** shipped as the `assist-local/`
+> app and the `assist-remote` runtime in `tee-mesh/node`.
 
 ---
 
@@ -17,7 +24,7 @@ the owner set who can reach the assistant, what it can answer automatically, wha
 and which local folders it may read — so less needs the human over time.
 
 Two named parts (see taxonomy):
-- **`assist-client`** — the local desktop app + CLI on the human's machine.
+- **`assist-local`** — the local desktop app + CLI on the human's machine.
 - **`assist-remote`** — the assistant runtime in the owner's confidential compute (a dstack
   TEE CVM, implemented in `tee-mesh/node`).
 
@@ -32,7 +39,7 @@ charge."*
 ## 2. Goals and non-goals
 
 ### Goals (v1)
-- `assist-client` Electron app + parallel CLI over one logic core.
+- `assist-local` Electron app + parallel CLI over one logic core.
 - The **"Ask my assistant"** loop end-to-end: a peer's assistant asks → `assist-remote`
   drafts a reply → it surfaces in the inbox → owner Approves / Follows up / Declines → the
   reply returns to the asker.
@@ -94,7 +101,7 @@ provider to draft, and approved replies are sent to the asker.
 
 ## 4. Architecture and topology
 
-A user's presence is the pair **{edge device (`assist-client`), private space
+A user's presence is the pair **{edge device (`assist-local`), private space
 (`assist-remote`)}**. `assist-remote` is a **separate process** in the owner's CVM; the app
 and CLI are **clients** to it over an owner-authenticated channel (§5).
 
@@ -112,7 +119,7 @@ Example starting point:
 | CVM 3 | Operator | Shashank | Shashank's `assist-remote` |
 
 ```
-┌──────────────── User's edge device — assist-client (Node/Electron) ─────────────┐
+┌──────────────── User's edge device — assist-local (Node/Electron) ─────────────┐
 │  renderer/ (vanilla JS)  ◄──IPC via preload──►  src/main.js (Electron main, thin)│
 │  Set up · Inbox · Review · Preferences          bin/alignos (CLI, thin)          │
 │                                  └── src/ (Electron-free core) ──┐               │
@@ -139,7 +146,7 @@ Example starting point:
 
 **Drafting runs inside `assist-remote`** (a model API call from the CVM). This is what lets
 it draft while the laptop is asleep — the "a draft is ready when you open the inbox" UX.
-For a request that needs **local data**, `assist-client` (the hands) reads a scoped +
+For a request that needs **local data**, `assist-local` (the hands) reads a scoped +
 redacted slice and sends *only that* to `assist-remote` to draft from; raw files never leave
 the device, and such requests require the laptop online and always go to the inbox (§6).
 
@@ -151,11 +158,11 @@ local files.
 canonical path is:
 
 ```
-assist-client / CLI / local MCP bridge
+assist-local / CLI / local MCP bridge
   → owner's assist-remote (signed owner route, durable task/outbox)
   → provider's assist-remote or provider A2A endpoint
   → owner's assist-remote (result, follow-up, or approval-needed state)
-  → assist-client Inbox when the local client is live
+  → assist-local Inbox when the local client is live
 ```
 
 If the local client is not live, the owner's `assist-remote` owns the buffer: pending
@@ -178,9 +185,9 @@ github.com/a2aproject/A2A.
 | `GET /.well-known/alignos-service.json` | Mesh peers / clients | This TEE projected as one owner-bound assistant service, including owner handle, `ask-{owner}` endpoint, owner-auth endpoint, Quick Mode URL, and Deep Mode handoff URL. |
 | `GET /peers` | Mesh peers / operators | Raw eventually-consistent directory of node cards. |
 | `GET /services` | Mesh peers / clients | Service discovery directory across the mesh. In the demo it returns Albi, Andrew, and Shashank as three owner assistant services. |
-| `GET\|POST /ask-<owner>?mode=quick\|deep` | Peer assistants / clients | Owner-specific ask endpoint, e.g. `/ask-albi`, `/ask-andrew`, `/ask-shashank`. `mode=quick` runs through the TEE; `mode=deep` creates or returns a durable local-execution task for `assist-client`. |
+| `GET\|POST /ask-<owner>?mode=quick\|deep` | Peer assistants / clients | Owner-specific ask endpoint, e.g. `/ask-albi`, `/ask-andrew`, `/ask-shashank`. `mode=quick` runs through the TEE; `mode=deep` creates or returns a durable local-execution task for `assist-local`. |
 | `POST /a2a` | Peer assistants | Public A2A surface for inbound asks and task lookup. This is the TEE Quick Mode endpoint for service-to-service requests. |
-| `POST /owner/a2a` | Owner's `assist-client` | Owner-authenticated inbox/review/control surface. |
+| `POST /owner/a2a` | Owner's `assist-local` | Owner-authenticated inbox/review/control surface. |
 
 Owner-originated provider requests use the same rule: the local client asks the owner's
 `assist-remote` to create a task and forward to the chosen provider TEE / A2A endpoint. The
@@ -210,12 +217,12 @@ message/send       peers → assist-remote; also carries Approve / Follow-up fin
 tasks/list         owner inbox  = status in {input-required, auth-required}
 tasks/get          one task + history for Review
 tasks/cancel       Decline
-tasks/resubscribe  client-initiated SSE — assist-client catches up + streams updates
+tasks/resubscribe  client-initiated SSE — assist-local catches up + streams updates
 ```
 **Deferred (interop completeness):** `message/stream`, `pushNotificationConfig/*`, inbound
 webhooks.
 
-**Push transport = client-initiated.** Laptops are behind NAT / asleep, so `assist-client`
+**Push transport = client-initiated.** Laptops are behind NAT / asleep, so `assist-local`
 opens the SSE stream *to* `assist-remote` (and polls `tasks/list` as a fallback). The durable
 queue (§8) is the source of truth; nothing depends on inbound reachability. A local MCP
 server, if enabled, is just another client-side adapter over the same owner-authenticated
@@ -239,7 +246,7 @@ std crypto (remote).
 
 - **`assist-remote` (TEE):** always-on, attestable. Drafts replies. **Allow-list-gated:**
   pre-approved, no-local-data requests can auto-respond; everything else → `input-required`.
-- **`assist-client` (edge):** runs Deep Mode locally for work that needs folders, files, or
+- **`assist-local` (edge):** runs Deep Mode locally for work that needs folders, files, or
   local tools. It can hand a scoped + redacted result back to `assist-remote` for review and
   mesh reply handling.
 - **Local MCP bridge (optional):** a client-side MCP server can expose local tools to
@@ -251,7 +258,7 @@ std crypto (remote).
 | Mode | Runs where | Uses | Folder access | Default use |
 |---|---|---|---|---|
 | Quick Mode / TEE mode | `assist-remote` in the owner's CVM | Synced notes/docs, onboarding log memory, task history | No live folder access | Fast replies and "answer like the owner would" drafts based on prior logs. |
-| Deep Mode / local mode | `assist-client` on the owner's machine, optionally through local MCP tools | Local folders/files/tools, local Claude/Codex-style execution, plus TEE context | Explicit, scoped, per request | Work that needs repo/file inspection or local tool execution. |
+| Deep Mode / local mode | `assist-local` on the owner's machine, optionally through local MCP tools | Local folders/files/tools, local Claude/Codex-style execution, plus TEE context | Explicit, scoped, per request | Work that needs repo/file inspection or local tool execution. |
 
 **Two firm rules:**
 1. **Execution follows data.** Quick Mode work lives entirely in the CVM and uses only
@@ -300,7 +307,7 @@ is sent to that model provider. We do not claim "nothing leaves." Confidential i
 adapters; renderer and CLI hold zero logic. This is what makes headless testing over SSH
 possible and keeps `assist-remote` a separate process.
 
-**New: `assist-client/` (Node/Electron)**
+**New: `assist-local/` (Node/Electron)**
 
 | File | Role | Origin |
 |---|---|---|
@@ -339,7 +346,7 @@ provider responses, approval-required tasks, Deep Mode local-context/tool reques
 retry/outbox state. The edge may cache for speed, but it is never the only holder of a
 request.
 
-**Persisted state — `assist-client`:** config (non-secret) in `~/.alignos/config.json`;
+**Persisted state — `assist-local`:** config (non-secret) in `~/.alignos/config.json`;
 owner private key in OS keychain or `~/.alignos/owner.key` (`0600`); `inbox.json`,
 `decisions.jsonl`, `scope.json` in `~/.alignos/`. No combined `.alignosrc`.
 
@@ -359,7 +366,7 @@ alignos scope [list|allow|deny] <path> # local-data folders / approved agent-log
 alignos serve                          # run the edge bridge headless (no window)
 ```
 
-**Runtimes:** `assist-client` = Node/Electron; `assist-remote` = Deno. Clean HTTP boundary.
+**Runtimes:** `assist-local` = Node/Electron; `assist-remote` = Deno. Clean HTTP boundary.
 
 **Multi-device:** v1 is **single-device** — URL setup binds the node to the local owner key.
 Named/revocable keys and per-device registration are deferred.
@@ -374,11 +381,11 @@ peer's assistant ──message/send──► assist-remote
             Quick Mode eligible       │ else / needs local data / novel
                        ▼                  │                 ▼
               auto-respond in CVM         │     needs local data?──yes──► task=auth-required
-              (logged)                    │            │ no                   │ assist-client reads
+              (logged)                    │            │ no                   │ assist-local reads
                                           │            ▼                      ▼ scoped+redacted slice
                                           │     draft in CVM (input-required) draft in CVM w/ slice
                                           │            └──────────┬───────────┘
-                                          │     assist-client streams it in (SSE; durable queue)
+                                          │     assist-local streams it in (SSE; durable queue)
                                           │                       │
                               ┌──────────── INBOX: human reviews (Review screen) ──────────┐
                               │   Approve   ·   Follow up   ·   Decline                     │
@@ -393,7 +400,7 @@ peer's assistant ──message/send──► assist-remote
 Owner-originated provider request lifecycle:
 
 ```
-assist-client / CLI / MCP bridge
+assist-local / CLI / MCP bridge
   ──signed owner request──► owner assist-remote
                               │ create durable task + outbox entry
                               ▼
@@ -402,7 +409,7 @@ assist-client / CLI / MCP bridge
                               ▼
                          owner assist-remote task store
                               │
-                              └──► Inbox / handled list when assist-client reconnects
+                              └──► Inbox / handled list when assist-local reconnects
 ```
 
 Quick Mode tasks may run to completion while the local client is offline. Deep Mode tasks
@@ -463,8 +470,8 @@ later layer on the same connect path.
    local dev `scripts/local-test.sh` (anvil; defaults to `http://localhost:8080`), or
    `npx phala deploy` once by hand for a real CVM.
 2. First launch → enter the gateway URL for the private space.
-3. `assist-client` generates an owner keypair and claims ownership with the token.
-4. After a successful claim, `assist-client` offers to use recent local agent logs from
+3. `assist-local` generates an owner keypair and claims ownership with the token.
+4. After a successful claim, `assist-local` offers to use recent local agent logs from
    `~/.claude`, `~/.codex`, `~/.openclaw`, `~/.pi`, `~/.opencode`, and `~/.hermes`
    to help the assistant understand the owner's work.
 5. If approved, the edge reads, compacts, and redacts those logs locally, then sends only the
@@ -509,7 +516,7 @@ client-initiated SSE; Deno KV task store; owner-auth envelope; `decisions.jsonl`
 
 ## 13. Design inspiration (router-daybook) — no code dependency
 
-`assist-client` is **standalone**: it does not import, vendor, or copy router-daybook.
+`assist-local` is **standalone**: it does not import, vendor, or copy router-daybook.
 Daybook informs the **design and UX** only; every module here is written fresh.
 
 Patterns we borrow (re-implemented, not lifted):
@@ -526,7 +533,7 @@ Patterns we borrow (re-implemented, not lifted):
 ## 14. Error handling
 
 - **Serve-first:** keep the node's posture — boot serves immediately; registration/gossip background.
-- **Laptop offline / asleep:** Deno-KV queue holds tasks; `assist-client` reconciles via
+- **Laptop offline / asleep:** Deno-KV queue holds tasks; `assist-local` reconciles via
   `tasks/resubscribe` + a `tasks/list` catch-up on reconnect. No-local-data drafts proceed in
   the CVM meanwhile; local-data requests wait for the edge.
 - **SSE drop:** reconnect with backoff; `tasks/list` is the truth, so a dropped stream

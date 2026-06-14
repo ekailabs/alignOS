@@ -3,10 +3,9 @@
 Run against a local standalone node (`mode: local`) via `tee-mesh/node/scripts/dev-local.sh`,
 backend `claude` (subscription, headless `claude -p`).
 
-## M0 — placeholder killed
+## M0 — placeholder killed locally
 `POST /ask-shashank?mode=quick` (loop off) returns a real model answer, `state: completed`,
-valid JSON. No `placeholder draft`. (The live Phala node still returns the placeholder —
-fixed by M3.)
+valid JSON. No `placeholder draft`.
 
 ## M1 — loop runs
 With `ALIGN_LOOP=on ALIGN_LOOP_PASSES=6`, one quick-mode ask produced:
@@ -28,3 +27,12 @@ agent loop.
 `claude -p` occasionally emits an ANSI/control byte in its output. Node JSON was still valid
 (properly escaped), but `draft.ts runCli` now strips control chars (keeps `\t`/`\n`) so replies
 to peers never carry stray escape sequences.
+
+## M3 — live Phala Codex smoke
+The live prod7 demo nodes were redeployed on the Codex-backed image with
+`ALIGN_DRAFT_BACKEND=codex`, `ALIGN_LOOP=on`, and `CODEX_AUTH_JSON_B64` supplied via env.
+Current smoke checks:
+- Albi `/ask-albi?mode=quick` returns a real GTM answer.
+- Andrew `/ask-andrew?mode=quick` returns a real TEE-attestation debugging answer.
+- Shashank `/ask-shashank?mode=quick` returns a real agent-routing answer.
+- All three health endpoints report `mode: tee` and `peers: 3`.
