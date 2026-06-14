@@ -1,17 +1,22 @@
 'use strict';
-// Read the owner's recent Claude Code (~/.claude) + Codex (~/.codex) sessions and compact
-// them into a redacted digest — the local "your own work is the signal" grounding source.
-// Standalone (our own), deny-by-default-friendly, secrets masked before anything is returned.
+// Read only the owner's approved local agent-log roots and compact them into a redacted
+// digest — the local "your own work is the signal" grounding source.
+// Standalone, deny-by-default-friendly, secrets masked before anything is returned.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { redact } = require('./redact');
 
 const HOME = os.homedir();
-const SOURCES = [
-  [path.join(HOME, '.claude', 'projects'), 'claude'],
-  [path.join(HOME, '.codex', 'sessions'), 'codex'],
+// jsonl-based sources (one record per line). opencode is handled separately (structured
+// JSON store, not jsonl) — see opencodeFolders().
+const LOG_SOURCES = [
+  { dir: path.join(HOME, '.claude'), source: 'claude' },
+  { dir: path.join(HOME, '.codex'), source: 'codex' },
+  { dir: path.join(HOME, '.pi', 'agent', 'sessions'), source: 'pi' },
 ];
+const OPENCODE_STORAGE = path.join(HOME, '.local', 'share', 'opencode', 'storage');
+const TEXT_EXTS = new Set(['.jsonl', '.ndjson', '.json', '.log', '.txt', '.md']);
 
 function walk(dir, out = []) {
   let ents = [];
@@ -19,24 +24,43 @@ function walk(dir, out = []) {
   for (const e of ents) {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) walk(p, out);
-    else if (e.name.endsWith('.jsonl')) out.push(p);
+    else if (TEXT_EXTS.has(path.extname(e.name).toLowerCase())) out.push(p);
   }
   return out;
 }
 
-// Recent session files across both sources, newest first. (allow = optional Set of allowed
-// source dirs for deny-by-default scope; null = both.)
+function sourceAllowed(dir, allow) {
+  if (!allow) return true;
+  for (const a of allow) {
+    const root = a.replace(/\/$/, '');
+    if (dir === root || dir.startsWith(root + path.sep)) return true;
+  }
+  return false;
+}
+
+function relativeLabel(file, root, source) {
+  const rel = path.relative(root, file);
+  if (source === 'claude' && rel.startsWith(`projects${path.sep}`)) {
+    return path.basename(path.dirname(file));
+  }
+  if (source === 'codex' && rel.startsWith(`sessions${path.sep}`)) {
+    return 'codex/' + path.basename(file).slice(8, 18);
+  }
+  const parent = path.dirname(rel);
+  return parent && parent !== '.' ? `${source}/${parent}` : source;
+}
+
+// Recent session/log files across the approved source roots, newest first. (allow = optional
+// Set of allowed source dirs for deny-by-default scope; null = all built-in roots.)
 function recentFiles(days, allow = null) {
   const cutoff = Date.now() - days * 86400000;
   const files = [];
-  for (const [dir, source] of SOURCES) {
-    if (allow && !allow.has(dir)) continue;
+  for (const { dir, source } of LOG_SOURCES) {
+    if (!sourceAllowed(dir, allow)) continue;
     for (const f of walk(dir)) {
       let st; try { st = fs.statSync(f); } catch { continue; }
       if (st.mtimeMs < cutoff) continue;
-      const project = source === 'claude'
-        ? path.basename(path.dirname(f))
-        : 'codex/' + path.basename(f).slice(8, 18);
+      const project = relativeLabel(f, dir, source);
       files.push({ file: f, source, mtimeMs: st.mtimeMs, project });
     }
   }
@@ -46,9 +70,31 @@ function recentFiles(days, allow = null) {
 function pullText(c) {
   if (c == null) return '';
   if (typeof c === 'string') return c;
-  if (Array.isArray(c)) return c.map((p) => (p && p.type === 'text' ? (p.text || '') : (typeof p === 'string' ? p : ''))).filter(Boolean).join(' ');
-  if (typeof c === 'object') return c.text || (typeof c.message === 'string' ? c.message : '') || '';
+  if (Array.isArray(c)) {
+    return c.map((p) => (p && p.type === 'text' ? (p.text || '')
+      : (typeof p === 'string' ? p : (p && p.content ? pullText(p.content) : '')))).filter(Boolean).join(' ');
+  }
+  if (typeof c === 'object') {
+    return c.text || (typeof c.message === 'string' ? c.message : '') || (c.content ? pullText(c.content) : '') || '';
+  }
   return '';
+}
+
+// opencode keeps a structured JSON store (not jsonl). Project worktrees are the folders.
+function opencodeFolders(cutoff) {
+  const out = [];
+  const pdir = path.join(OPENCODE_STORAGE, 'project');
+  let files = [];
+  try { files = fs.readdirSync(pdir).filter((f) => f.endsWith('.json')); } catch { return out; }
+  for (const f of files) {
+    let j; try { j = JSON.parse(fs.readFileSync(path.join(pdir, f), 'utf8')); } catch { continue; }
+    const p = j.worktree || j.path;
+    if (!p || p === HOME || p === '/' || p.length < 4) continue;
+    const last = (j.time && (j.time.updated || j.time.created)) || 0;
+    if (cutoff && last && last < cutoff) continue;
+    out.push({ path: p, lastActive: last });
+  }
+  return out;
 }
 
 function readSession(file, source) {
@@ -56,7 +102,12 @@ function readSession(file, source) {
   try { lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean); } catch { return []; }
   const msgs = [];
   for (const ln of lines) {
-    let j; try { j = JSON.parse(ln); } catch { continue; }
+    let j;
+    try { j = JSON.parse(ln); } catch {
+      const t = ln.trim();
+      if (t.length > 1) msgs.push({ role: source, text: t });
+      continue;
+    }
     if (source === 'claude') {
       if (j.type === 'user' || j.type === 'assistant') {
         const t = pullText(j.message && j.message.content).trim();
@@ -112,6 +163,9 @@ function sessionCwd(file, source) {
     let j; try { j = JSON.parse(ln); } catch { continue; }
     if (source === 'claude' && j.cwd) return j.cwd;
     if (source === 'codex' && j.payload && j.payload.cwd) return j.payload.cwd;
+    if (j.cwd && typeof j.cwd === 'string') return j.cwd;
+    if (j.projectPath && typeof j.projectPath === 'string') return j.projectPath;
+    if (j.workspace && typeof j.workspace === 'string') return j.workspace;
   }
   return null;
 }
@@ -121,7 +175,7 @@ function sessionCwd(file, source) {
 function suggestFolders({ days = 30 } = {}) {
   const cutoff = Date.now() - days * 86400000;
   const agg = new Map();
-  for (const [dir, source] of SOURCES) {
+  for (const { dir, source } of LOG_SOURCES) {
     for (const f of walk(dir)) {
       let st; try { st = fs.statSync(f); } catch { continue; }
       if (st.mtimeMs < cutoff) continue;
@@ -133,6 +187,13 @@ function suggestFolders({ days = 30 } = {}) {
       e.sources.add(source);
       agg.set(cwd, e);
     }
+  }
+  for (const o of opencodeFolders(cutoff)) {
+    const e = agg.get(o.path) || { path: o.path, sessions: 0, lastActive: 0, sources: new Set() };
+    e.sessions += 1;
+    e.lastActive = Math.max(e.lastActive, o.lastActive || 0);
+    e.sources.add('opencode');
+    agg.set(o.path, e);
   }
   return [...agg.values()]
     .map((e) => ({ path: e.path, sessions: e.sessions, lastActive: e.lastActive, sources: [...e.sources].sort().join('+') }))
@@ -155,11 +216,11 @@ function stripCode(s) {
 function ingestCorpus({ days = null, maxPairs = 2000, maxLen = 700, project = null } = {}) {
   const cutoff = days ? Date.now() - days * 86400000 : 0;
   const files = [];
-  for (const [dir, source] of SOURCES) {
+  for (const { dir, source } of LOG_SOURCES) {
     for (const f of walk(dir)) {
       let st; try { st = fs.statSync(f); } catch { continue; }
       if (st.mtimeMs < cutoff) continue;
-      const proj = source === 'claude' ? path.basename(path.dirname(f)) : 'codex';
+      const proj = relativeLabel(f, dir, source);
       files.push({ file: f, source, mtimeMs: st.mtimeMs, project: proj });
     }
   }
@@ -192,6 +253,5 @@ function ingestCorpus({ days = null, maxPairs = 2000, maxLen = 700, project = nu
   return { pairs, stats: { pairs: pairs.length, sessions: files.length } };
 }
 
-module.exports = { digest, recentFiles, readSession, sessionCwd, suggestFolders, ingestCorpus };
-
+module.exports = { LOG_SOURCES, digest, recentFiles, readSession, sessionCwd, suggestFolders, ingestCorpus };
 

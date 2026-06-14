@@ -7,7 +7,7 @@ const mc = require('./mesh-client');
 const cfg = require('./config');
 const store = require('./inbox-store');
 const scope = require('./scope');
-const transcripts = require('./transcripts');
+const agentLogs = require('./agent-logs');
 
 let win;
 function createWindow() {
@@ -29,7 +29,7 @@ app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) creat
 
 ipcMain.handle('bootstrap', async () => { const c = cfg.load(); return { connected: !!c.url, onboarded: !!scope.load().onboarded, url: c.url || '' }; });
 ipcMain.handle('setup', async (_e, { url }) => { cfg.save({ url: String(url).replace(/\/$/, '') }); return { ok: true }; });
-ipcMain.handle('suggest-folders', async () => transcripts.suggestFolders({ days: 30 }));
+ipcMain.handle('suggest-folders', async () => agentLogs.suggestFolders({ days: 30 }));
 ipcMain.handle('pick-folder', async () => {
   const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'], message: 'Folder your assistant may read' });
   return r.canceled ? null : r.filePaths[0];
