@@ -4,12 +4,23 @@
 //                      message/send with {finalize|followup} (approve / follow up)
 // One POST endpoint per audience; ingress.ts mounts /a2a (public) and /owner/a2a (owner).
 import {
-  type Task, type Message, type Policy,
+  type Artifact, type Task, type Message, type Policy,
   TaskStore, textOf, textMessage, defaultPolicy, appendEvent,
 } from "./inbox.ts";
 import { draftReply } from "./draft.ts";
+import { draftLooped } from "./loop.ts";
 
-export interface A2ACtx { store: TaskStore; policy?: Policy; selfId: string }
+const LOOP_ON = (Deno.env.get("ALIGN_LOOP") ?? "off").toLowerCase() === "on";
+const defaultDraftNew = (t: Task): Promise<Artifact> =>
+  LOOP_ON ? draftLooped(t) : draftReply(t, "");
+
+export interface A2ACtx {
+  store: TaskStore;
+  policy?: Policy;
+  selfId: string;
+  draftNew?: (t: Task) => Promise<Artifact>;
+  draftRevise?: (t: Task, instruction: string) => Promise<Artifact>;
+}
 
 interface RpcReq { jsonrpc: "2.0"; id: string | number | null; method: string; params?: any }
 
@@ -61,6 +72,9 @@ export async function handleA2A(ctx: A2ACtx, bodyText: string, owner: boolean): 
 async function onMessageSend(ctx: A2ACtx, params: any, owner: boolean): Promise<Task> {
   const msg = params?.message as Message;
   if (!msg?.parts) throw new Error("message.parts required");
+  const draftNew = ctx.draftNew ?? defaultDraftNew;
+  const draftRevise = ctx.draftRevise ??
+    ((t: Task, instruction: string) => draftReply(t, instruction));
 
   // ── continuation of an existing task ──
   if (msg.taskId) {
@@ -73,7 +87,7 @@ async function onMessageSend(ctx: A2ACtx, params: any, owner: boolean): Promise<
         // owner asked the assistant to revise → re-draft, back to the inbox
         t.status = { state: "working", timestamp: new Date().toISOString() };
         await ctx.store.put(t);
-        t.artifacts = [await draftReply(t, textOf(msg.parts))];
+        t.artifacts = [await draftRevise(t, textOf(msg.parts))];
         t.status = {
           state: "input-required",
           timestamp: new Date().toISOString(),
@@ -91,7 +105,7 @@ async function onMessageSend(ctx: A2ACtx, params: any, owner: boolean): Promise<
       // a peer supplied more input → re-draft and surface for review
       t.status = { state: "working", timestamp: new Date().toISOString() };
       await ctx.store.put(t);
-      t.artifacts = [await draftReply(t, "")];
+      t.artifacts = [await draftNew(t)];
       t.status = {
         state: "input-required",
         timestamp: new Date().toISOString(),
@@ -120,7 +134,7 @@ async function onMessageSend(ctx: A2ACtx, params: any, owner: boolean): Promise<
   const decision = (ctx.policy ?? defaultPolicy)(msg, t.from);
   t.status = { state: "working", timestamp: new Date().toISOString() };
   await ctx.store.put(t);
-  t.artifacts = [await draftReply(t, "")];
+  t.artifacts = [await draftNew(t)];
 
   if (decision === "auto") {
     t.status = { state: "completed", timestamp: new Date().toISOString() };
