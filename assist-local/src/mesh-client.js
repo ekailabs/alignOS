@@ -93,8 +93,10 @@ async function health(timeoutMs = 3000) {
 }
 
 // public surface (peer simulation / interop)
+// node_id carries our Ed25519 public key — the same id the node uses to recognize this
+// client (TOFU owner key), so the sender has a stable machine-readable origin, not just a label.
 const peerAsk = (text, display, url) =>
-  rpc('message/send', { message: { role: 'user', parts: [{ kind: 'text', text }], messageId: rid() }, from: { display } }, { url });
+  rpc('message/send', { message: { role: 'user', parts: [{ kind: 'text', text }], messageId: rid() }, from: { node_id: identity.pubKeyB64(), agent: 'assist-local', display } }, { url });
 
 const nodeCard = (opts) => getJson('/.well-known/agent-card.json', { ...opts, fallback: false });
 const serviceCard = (opts) => getJson('/.well-known/alignos-service.json', { ...opts, fallback: false });
